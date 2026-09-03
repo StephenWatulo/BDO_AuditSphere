@@ -1,0 +1,22 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.venv/
+__pycache__/
+*.pyc
+
+# Tooling
+.vercel
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local Claude/Cursor settings
+.claude/settings.local.json
