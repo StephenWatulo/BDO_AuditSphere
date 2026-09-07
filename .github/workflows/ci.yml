@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "9.15.4"
+
+jobs:
+  verify:
+    name: Typecheck, lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: auditsphere
+          POSTGRES_PASSWORD: auditsphere
+          POSTGRES_DB: auditsphere
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U auditsphere -d auditsphere"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      CI: "true"
+      DATABASE_URL: postgresql://auditsphere:auditsphere@localhost:5432/auditsphere?schema=public
+      JWT_ACCESS_SECRET: ci-only-access-secret-at-least-32-characters-long
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-at-least-32-characters-long
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      API_BASE_URL: http://localhost:4000
+      WEB_BASE_URL: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: auditsphere-documents
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_FORCE_PATH_STYLE: "true"
+      AI_ENABLED: "false"
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+      NEXT_TELEMETRY_DISABLED: "1"
+      TURBO_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Build shared packages
+        run: pnpm --filter @auditsphere/shared --filter @auditsphere/db build
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Lint
+        run: pnpm -r run --if-present lint
+
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      - name: Seed demo data
+        run: pnpm db:seed
+
+      # Fails when schema.prisma has changes that no migration captures (exit code 2).
+      - name: Verify migrations are in sync with the schema
+        run: pnpm --filter @auditsphere/db exec prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
+
+      - name: Test
+        run: pnpm -r run --if-present test
+
+      - name: Build
+        run: pnpm -r build
+
+  images:
+    name: Build and push images
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - app: api
+            dockerfile: infra/docker/api.Dockerfile
+            build_args: ""
+          - app: web
+            dockerfile: infra/docker/web.Dockerfile
+            build_args: |
+              NEXT_PUBLIC_API_URL=/api/v1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/auditsphere-${{ matrix.app }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+            type=raw,value=latest
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ matrix.build_args }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,scope=${{ matrix.app }},mode=max
+          provenance: false

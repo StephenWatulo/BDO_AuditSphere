@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auditsphere-api
+  labels:
+    app.kubernetes.io/name: auditsphere-api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: auditsphere-api
+  ports:
+    - name: http
+      port: 4000
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auditsphere-web
+  labels:
+    app.kubernetes.io/name: auditsphere-web
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: auditsphere-web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

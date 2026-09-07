@@ -1,0 +1,67 @@
+# Background worker: reminders, escalations, document text extraction, AI batch
+# jobs and monitoring runs. Same image as the API, started with `--worker`.
+# It exposes no HTTP endpoint in phase 1, so liveness relies on the process
+# exiting on fatal errors (restartPolicy Always). Keep exactly one replica:
+# scheduled jobs are not yet leader-elected.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auditsphere-worker
+  labels:
+    app.kubernetes.io/name: auditsphere-worker
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: auditsphere-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: auditsphere-worker
+        app.kubernetes.io/component: worker
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: ghcr.io/bdo-ea/auditsphere-api
+          imagePullPolicy: IfNotPresent
+          args: ["--worker"]
+          env:
+            - name: RUN_MIGRATIONS
+              value: "false"
+          envFrom:
+            - configMapRef:
+                name: auditsphere-config
+            - secretRef:
+                name: auditsphere-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,40 @@
+{
+  "name": "bdo-auditsphere",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BDO AuditSphere - next-generation internal audit operating platform",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "dev:api": "pnpm --filter @auditsphere/api dev",
+    "dev:web": "pnpm --filter @auditsphere/web dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @auditsphere/db generate",
+    "db:migrate": "pnpm --filter @auditsphere/db migrate:dev",
+    "db:deploy": "pnpm --filter @auditsphere/db migrate:deploy",
+    "db:seed": "pnpm --filter @auditsphere/db seed",
+    "db:local": "tsx scripts/local-postgres.ts",
+    "db:local:stop": "tsx scripts/local-postgres.ts --stop",
+    "db:local:status": "tsx scripts/local-postgres.ts --status",
+    "db:status": "pnpm --filter @auditsphere/db exec prisma migrate status",
+    "db:studio": "pnpm --filter @auditsphere/db studio",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json,yml,yaml}\""
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "embedded-postgres": "17.10.0-beta.17",
+    "pdfjs-dist": "4.10.38",
+    "pg": "^8.13.0",
+    "playwright": "1.55.1",
+    "prettier": "3.9.6",
+    "tsx": "4.23.13",
+    "turbo": "2.10.12",
+    "typescript": "5.9.3"
+  }
+}

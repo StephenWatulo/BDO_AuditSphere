@@ -1,0 +1,47 @@
+# ingress-nginx. /api/* goes straight to the API (avoids a double hop through
+# the Next.js rewrite for browser calls); everything else to the web app.
+# TLS: create the secret `auditsphere-tls` with cert-manager (annotation below)
+# or `kubectl create secret tls auditsphere-tls --cert=... --key=...`.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auditsphere
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains";
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - auditsphere.example.com
+      secretName: auditsphere-tls
+  rules:
+    - host: auditsphere.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: auditsphere-api
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: auditsphere-web
+                port:
+                  name: http

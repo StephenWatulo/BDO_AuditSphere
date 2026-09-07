@@ -1,0 +1,43 @@
+# Production overlay: pinned image tags, more replicas, larger resources and
+# the real hostnames. Apply with:
+#   kubectl apply -k infra/k8s/overlays/production
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: auditsphere
+
+resources:
+  - ../../base
+
+commonLabels:
+  environment: production
+
+images:
+  - name: ghcr.io/bdo-ea/auditsphere-api
+    newTag: v0.1.0 # replaced by the deploy workflow (kustomize edit set image)
+  - name: ghcr.io/bdo-ea/auditsphere-web
+    newTag: v0.1.0
+
+patches:
+  - path: replicas-and-resources.yaml
+  - path: config.yaml
+  - target:
+      kind: Ingress
+      name: auditsphere
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: auditsphere.bdo-ea.com
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: auditsphere.bdo-ea.com
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: auditsphere-api
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 10

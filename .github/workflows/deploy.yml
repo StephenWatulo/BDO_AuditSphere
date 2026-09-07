@@ -1,0 +1,104 @@
+name: Deploy
+
+# Manual deployment to Kubernetes. Select the GitHub environment (its KUBECONFIG
+# secret is used) and the image tag produced by the CI `images` job.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment holding the KUBECONFIG secret
+        type: environment
+        required: true
+      image_tag:
+        description: Image tag to deploy (e.g. 0.1.0 or sha-abc1234)
+        type: string
+        required: true
+      overlay:
+        description: Kustomize overlay path
+        type: string
+        default: infra/k8s/overlays/production
+      skip_migrations:
+        description: Skip the migrate Job (only when no migrations changed)
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.image_tag }} to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 30
+    env:
+      NAMESPACE: auditsphere
+      REGISTRY: ghcr.io/${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.0
+
+      - name: Configure kubeconfig
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+        run: |
+          if [ -z "$KUBECONFIG_CONTENT" ]; then
+            echo "KUBECONFIG secret is not set on environment ${{ inputs.environment }}" >&2
+            exit 1
+          fi
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBECONFIG_CONTENT" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl cluster-info
+
+      - name: Pin image tags
+        working-directory: ${{ inputs.overlay }}
+        run: |
+          kubectl kustomize --help >/dev/null
+          kustomize_bin=$(command -v kustomize || true)
+          if [ -z "$kustomize_bin" ]; then
+            curl -sSL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+            kustomize_bin=./kustomize
+          fi
+          "$kustomize_bin" edit set image \
+            "ghcr.io/bdo-ea/auditsphere-api=${REGISTRY}/auditsphere-api:${{ inputs.image_tag }}" \
+            "ghcr.io/bdo-ea/auditsphere-web=${REGISTRY}/auditsphere-web:${{ inputs.image_tag }}"
+          cat kustomization.yaml
+
+      - name: Render manifests
+        run: kubectl kustomize "${{ inputs.overlay }}" > rendered.yaml && grep -E "image:" rendered.yaml
+
+      - name: Run migrations
+        if: ${{ !inputs.skip_migrations }}
+        run: |
+          kubectl -n "$NAMESPACE" delete job auditsphere-migrate --ignore-not-found
+          # Apply only the Job (plus the ConfigMap it reads) first so the schema
+          # is migrated before any Deployment rolls.
+          kubectl kustomize "${{ inputs.overlay }}" \
+            | awk 'BEGIN{RS="---\n"} /kind: (Job|ConfigMap|Namespace)\n/ {print "---"; print}' \
+            | kubectl apply -f -
+          kubectl -n "$NAMESPACE" wait --for=condition=complete job/auditsphere-migrate --timeout=600s || {
+            echo "Migration job failed; logs:" >&2
+            kubectl -n "$NAMESPACE" logs job/auditsphere-migrate >&2 || true
+            exit 1
+          }
+          kubectl -n "$NAMESPACE" logs job/auditsphere-migrate
+
+      - name: Apply manifests
+        run: kubectl apply -k "${{ inputs.overlay }}"
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n "$NAMESPACE" rollout status deploy/auditsphere-api --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deploy/auditsphere-worker --timeout=300s
+          kubectl -n "$NAMESPACE" rollout status deploy/auditsphere-web --timeout=600s
+
+      - name: Smoke check
+        run: |
+          kubectl -n "$NAMESPACE" get pods -o wide
+          kubectl -n "$NAMESPACE" run smoke-$RANDOM --rm -i --restart=Never --image=curlimages/curl:8.8.0 -- \
+            -fsS http://auditsphere-api:4000/api/v1/ready

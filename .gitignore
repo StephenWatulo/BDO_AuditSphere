@@ -20,3 +20,13 @@ Thumbs.db
 
 # Local Claude/Cursor settings
 .claude/settings.local.json
+
+# Monorepo
+.turbo/
+*.tsbuildinfo
+.next/
+coverage/
+.local-postgres/
+.local-storage/
+.local-dev/
+apps/web/next-env.d.ts

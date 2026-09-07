@@ -1,0 +1,58 @@
+'use client';
+
+import * as React from 'react';
+import * as TabsPrimitive from '@radix-ui/react-tabs';
+import { cn } from '@/lib/utils';
+
+const Tabs = TabsPrimitive.Root;
+
+const TabsList = React.forwardRef<
+  React.ComponentRef<typeof TabsPrimitive.List>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> & { variant?: 'underline' | 'pills' }
+>(({ className, variant = 'underline', ...props }, ref) => (
+  <TabsPrimitive.List
+    ref={ref}
+    data-variant={variant}
+    className={cn(
+      'group/tabs inline-flex items-center text-muted-foreground',
+      variant === 'underline' && 'h-9 w-full justify-start gap-4 border-b border-border overflow-x-auto',
+      variant === 'pills' && 'h-8 gap-0.5 rounded-md bg-muted p-0.5',
+      className,
+    )}
+    {...props}
+  />
+));
+TabsList.displayName = TabsPrimitive.List.displayName;
+
+const TabsTrigger = React.forwardRef<
+  React.ComponentRef<typeof TabsPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      'inline-flex items-center justify-center gap-1.5 whitespace-nowrap text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50',
+      // underline
+      'group-data-[variant=underline]/tabs:h-9 group-data-[variant=underline]/tabs:border-b-2 group-data-[variant=underline]/tabs:border-transparent group-data-[variant=underline]/tabs:px-0.5 group-data-[variant=underline]/tabs:data-[state=active]:border-primary group-data-[variant=underline]/tabs:data-[state=active]:text-foreground group-data-[variant=underline]/tabs:hover:text-foreground',
+      // pills
+      'group-data-[variant=pills]/tabs:h-7 group-data-[variant=pills]/tabs:rounded-sm group-data-[variant=pills]/tabs:px-2.5 group-data-[variant=pills]/tabs:data-[state=active]:bg-card group-data-[variant=pills]/tabs:data-[state=active]:text-foreground group-data-[variant=pills]/tabs:data-[state=active]:shadow-sm',
+      className,
+    )}
+    {...props}
+  />
+));
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
+
+const TabsContent = React.forwardRef<
+  React.ComponentRef<typeof TabsPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Content
+    ref={ref}
+    className={cn('mt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60', className)}
+    {...props}
+  />
+));
+TabsContent.displayName = TabsPrimitive.Content.displayName;
+
+export { Tabs, TabsList, TabsTrigger, TabsContent };

@@ -1,0 +1,1910 @@
+// BDO AuditSphere - canonical data model.
+// Every business table carries tenantId for tenant isolation. Row Level Security
+// policies are applied in the rls migration; the API additionally scopes every
+// query through a tenant-aware Prisma client extension.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum RoleKey {
+  GLOBAL_ADMIN
+  AUDIT_PARTNER
+  CHIEF_AUDIT_EXECUTIVE
+  AUDIT_MANAGER
+  SENIOR_AUDITOR
+  JUNIOR_AUDITOR
+  BUSINESS_OWNER
+  MANAGEMENT_REVIEWER
+  AUDIT_COMMITTEE_VIEWER
+}
+
+enum AuthProvider {
+  LOCAL
+  ENTRA_ID
+}
+
+enum EntityType {
+  LEGAL_ENTITY
+  BUSINESS_UNIT
+  COUNTRY
+  DEPARTMENT
+  PROCESS
+  SYSTEM
+  PRODUCT
+  THIRD_PARTY
+}
+
+enum RiskRating {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RiskStatus {
+  ACTIVE
+  MONITORING
+  RETIRED
+}
+
+enum RiskVelocity {
+  SLOW
+  MODERATE
+  FAST
+  IMMEDIATE
+}
+
+enum ControlType {
+  PREVENTIVE
+  DETECTIVE
+  CORRECTIVE
+  DIRECTIVE
+}
+
+enum ControlNature {
+  MANUAL
+  AUTOMATED
+  IT_DEPENDENT_MANUAL
+}
+
+enum ControlFrequency {
+  CONTINUOUS
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+  EVENT_DRIVEN
+}
+
+enum ControlEffectiveness {
+  NOT_TESTED
+  EFFECTIVE
+  PARTIALLY_EFFECTIVE
+  INEFFECTIVE
+}
+
+enum ControlTestType {
+  DESIGN
+  OPERATING
+}
+
+enum ControlTestResult {
+  NOT_STARTED
+  IN_PROGRESS
+  PASS
+  PASS_WITH_EXCEPTIONS
+  FAIL
+}
+
+enum PlanStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  ARCHIVED
+}
+
+enum PlanItemStatus {
+  PROPOSED
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  DEFERRED
+  CANCELLED
+}
+
+enum PlanItemSource {
+  RISK_BASED
+  MANAGEMENT_REQUEST
+  REGULATORY
+  FOLLOW_UP
+  AUDIT_COMMITTEE
+  ROTATIONAL
+}
+
+enum EngagementType {
+  OPERATIONAL
+  FINANCIAL
+  COMPLIANCE
+  IT
+  INVESTIGATION
+  ADVISORY
+  FOLLOW_UP
+  INTEGRATED
+}
+
+enum EngagementStage {
+  PLANNING
+  RISK_ASSESSMENT
+  PROGRAMME
+  FIELDWORK
+  REVIEW
+  REPORTING
+  FOLLOW_UP
+  CLOSED
+}
+
+enum EngagementStatus {
+  ACTIVE
+  ON_HOLD
+  CANCELLED
+  COMPLETED
+}
+
+enum EngagementRole {
+  PARTNER
+  MANAGER
+  LEAD
+  SENIOR
+  JUNIOR
+  REVIEWER
+  SPECIALIST
+  OBSERVER
+}
+
+enum AuditOpinion {
+  SATISFACTORY
+  NEEDS_IMPROVEMENT
+  UNSATISFACTORY
+  NOT_RATED
+}
+
+enum ProgramStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum StepStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  NOT_APPLICABLE
+}
+
+enum WorkpaperStatus {
+  DRAFT
+  PREPARED
+  IN_REVIEW
+  REVIEW_NOTES_OPEN
+  REVIEWED
+  SIGNED_OFF
+}
+
+enum ReviewNoteStatus {
+  OPEN
+  ADDRESSED
+  CLEARED
+}
+
+enum ReviewNotePriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum ReviewDecision {
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
+}
+
+enum ReviewLevel {
+  PREPARER
+  FIRST
+  SECOND
+  PARTNER
+  QUALITY
+}
+
+enum EvidenceType {
+  DOCUMENT
+  SCREENSHOT
+  SYSTEM_EXTRACT
+  INTERVIEW_NOTE
+  OBSERVATION
+  RECALCULATION
+  CONFIRMATION
+  EMAIL
+  PHOTO
+  VOICE_NOTE
+}
+
+enum DocumentClassification {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+  RESTRICTED
+}
+
+enum FindingSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FindingStatus {
+  DRAFT
+  MANAGEMENT_REVIEW
+  AGREED
+  IMPLEMENTATION
+  VALIDATION
+  CLOSED
+  RISK_ACCEPTED
+}
+
+enum RecommendationStatus {
+  PROPOSED
+  AGREED
+  IN_PROGRESS
+  IMPLEMENTED
+  VALIDATED
+  NOT_IMPLEMENTED
+  SUPERSEDED
+}
+
+enum RootCauseCategory {
+  PEOPLE
+  PROCESS
+  TECHNOLOGY
+  GOVERNANCE
+  EXTERNAL
+  DATA
+  POLICY
+}
+
+enum RequestStatus {
+  OPEN
+  SUBMITTED
+  ACCEPTED
+  RETURNED
+  CANCELLED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  TEAMS
+}
+
+enum LibraryItemType {
+  AUDIT_PROGRAM
+  RISK
+  CONTROL
+  TEST_PROCEDURE
+  FINDING
+  RECOMMENDATION
+  WORKPAPER_TEMPLATE
+  CHECKLIST
+}
+
+enum LibraryStatus {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  RETIRED
+}
+
+enum TimesheetStatus {
+  OPEN
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum AvailabilityType {
+  LEAVE
+  TRAINING
+  PUBLIC_HOLIDAY
+  SECONDMENT
+  OTHER
+}
+
+enum ManagementRequestStatus {
+  RECEIVED
+  UNDER_REVIEW
+  ACCEPTED
+  DECLINED
+  PLANNED
+}
+
+enum RiskSignalStatus {
+  NEW
+  REVIEWED
+  LINKED
+  DISMISSED
+}
+
+enum MonitoringAlertStatus {
+  OPEN
+  INVESTIGATING
+  CONFIRMED
+  FALSE_POSITIVE
+  ESCALATED
+}
+
+enum ConnectorType {
+  DATABASE
+  REST_API
+  FILE_UPLOAD
+  SAP
+  ORACLE
+  DYNAMICS_365
+  SAGE
+}
+
+// ---------------------------------------------------------------------------
+// Identity, tenancy and access control
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  name      String
+  region    String?
+  settings  Json     @default("{}")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              User[]
+  roles              Role[]
+  entities           AuditEntity[]
+  processes          Process[]
+  riskCategories     RiskCategory[]
+  scoringModels      ScoringModel[]
+  risks              Risk[]
+  riskAssessments    RiskAssessment[]
+  controls           Control[]
+  riskControls       RiskControl[]
+  controlTests       ControlTest[]
+  auditPlans         AuditPlan[]
+  planItems          AuditPlanItem[]
+  managementRequests ManagementRequest[]
+  engagements        Engagement[]
+  engagementMembers  EngagementMember[]
+  stakeholders       EngagementStakeholder[]
+  milestones         EngagementMilestone[]
+  stageHistory       EngagementStageHistory[]
+  programs           AuditProgram[]
+  programSteps       AuditProgramStep[]
+  workpaperTemplates WorkpaperTemplate[]
+  workpapers         Workpaper[]
+  workpaperVersions  WorkpaperVersion[]
+  reviewNotes        ReviewNote[]
+  reviews            Review[]
+  documents          Document[]
+  documentVersions   DocumentVersion[]
+  evidence           Evidence[]
+  findings           Finding[]
+  recommendations    Recommendation[]
+  findingHistory     FindingStatusHistory[]
+  documentRequests   DocumentRequest[]
+  tasks              Task[]
+  comments           Comment[]
+  notifications      Notification[]
+  approvals          Approval[]
+  auditTrail         AuditTrail[]
+  libraryItems       LibraryItem[]
+  chargeCodes        ChargeCode[]
+  timesheets         Timesheet[]
+  timeEntries        TimeEntry[]
+  availability       StaffAvailability[]
+  aiInteractions     AiInteraction[]
+  riskSignals        RiskSignal[]
+  connectors         DataConnector[]
+  monitoringRules    MonitoringRule[]
+  monitoringAlerts   MonitoringAlert[]
+  refreshTokens      RefreshToken[]
+  userRoles          UserRole[]
+}
+
+model User {
+  id               String       @id @default(uuid()) @db.Uuid
+  tenantId         String       @db.Uuid
+  email            String
+  displayName      String
+  firstName        String?
+  lastName         String?
+  jobTitle         String?
+  officeLocation   String?
+  country          String?
+  phone            String?
+  avatarUrl        String?
+  status           UserStatus   @default(INVITED)
+  authProvider     AuthProvider @default(LOCAL)
+  externalId       String?
+  passwordHash     String?
+  mfaEnabled       Boolean      @default(false)
+  mfaSecretEnc     String?
+  mfaRecoveryCodes String[]     @default([])
+  lastLoginAt      DateTime?
+  failedLoginCount Int          @default(0)
+  lockedUntil      DateTime?
+  chargeRate       Decimal?     @db.Decimal(12, 2)
+  weeklyCapacity   Decimal      @default(40) @db.Decimal(5, 2)
+  preferences      Json         @default("{}")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  deletedAt        DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  roles                UserRole[]
+  refreshTokens        RefreshToken[]
+  ownedEntities        AuditEntity[]            @relation("EntityOwner")
+  ownedProcesses       Process[]                @relation("ProcessOwner")
+  ownedRisks           Risk[]                   @relation("RiskOwner")
+  assessedRisks        RiskAssessment[]         @relation("RiskAssessor")
+  ownedControls        Control[]                @relation("ControlOwner")
+  controlTests         ControlTest[]            @relation("ControlTester")
+  plansCreated         AuditPlan[]              @relation("PlanCreator")
+  plansApproved        AuditPlan[]              @relation("PlanApprover")
+  planItemsLed         AuditPlanItem[]          @relation("PlanItemLead")
+  engagementsLed       Engagement[]             @relation("EngagementLead")
+  engagementsManaged   Engagement[]             @relation("EngagementManager")
+  engagementsPartner   Engagement[]             @relation("EngagementPartner")
+  engagementMembers    EngagementMember[]
+  stakeholderOf        EngagementStakeholder[]
+  stageChanges         EngagementStageHistory[]
+  programsApproved     AuditProgram[]           @relation("ProgramApprover")
+  stepsAssigned        AuditProgramStep[]       @relation("StepAssignee")
+  workpapersPrepared   Workpaper[]              @relation("WorkpaperPreparer")
+  workpapersReviewed   Workpaper[]              @relation("WorkpaperReviewer")
+  workpapersSignedOff  Workpaper[]              @relation("WorkpaperSignOff")
+  workpaperVersions    WorkpaperVersion[]
+  reviewNotesRaised    ReviewNote[]             @relation("ReviewNoteRaiser")
+  reviewNotesAssigned  ReviewNote[]             @relation("ReviewNoteAssignee")
+  reviewNotesCleared   ReviewNote[]             @relation("ReviewNoteClearer")
+  reviews              Review[]
+  evidenceObtained     Evidence[]
+  documentsUploaded    Document[]
+  documentVersions     DocumentVersion[]
+  findingsRaised       Finding[]                @relation("FindingRaiser")
+  findingsOwned        Finding[]                @relation("FindingActionOwner")
+  findingsValidated    Finding[]                @relation("FindingValidator")
+  findingHistory       FindingStatusHistory[]
+  recommendationsOwned Recommendation[]
+  requestsRaised       DocumentRequest[]        @relation("RequestRaiser")
+  requestsAssigned     DocumentRequest[]        @relation("RequestAssignee")
+  tasksAssigned        Task[]                   @relation("TaskAssignee")
+  tasksCreated         Task[]                   @relation("TaskCreator")
+  comments             Comment[]
+  notifications        Notification[]
+  auditTrail           AuditTrail[]
+  libraryItemsCreated  LibraryItem[]            @relation("LibraryCreator")
+  libraryItemsApproved LibraryItem[]            @relation("LibraryApprover")
+  approvals            Approval[]
+  timesheets           Timesheet[]              @relation("TimesheetOwner")
+  timesheetsApproved   Timesheet[]              @relation("TimesheetApprover")
+  availability         StaffAvailability[]
+  aiInteractions       AiInteraction[]
+  managementRequests   ManagementRequest[]
+  monitoringAlerts     MonitoringAlert[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId, status])
+  @@index([externalId])
+}
+
+model Role {
+  id          String  @id @default(uuid()) @db.Uuid
+  tenantId    String  @db.Uuid
+  key         RoleKey
+  name        String
+  description String?
+  isSystem    Boolean @default(true)
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@unique([tenantId, key])
+}
+
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  key         String @unique // e.g. engagement:create, workpaper:sign_off
+  module      String
+  description String
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  userId   String  @db.Uuid
+  roleId   String  @db.Uuid
+  entityId String? @db.Uuid // optional scope: role only applies within this universe entity subtree
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id])
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  entity AuditEntity? @relation(fields: [entityId], references: [id])
+
+  @@unique([userId, roleId, entityId])
+  @@index([tenantId, userId])
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @db.Uuid
+  userId     String    @db.Uuid
+  tokenHash  String    @unique
+  family     String    @db.Uuid
+  userAgent  String?
+  ipAddress  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?   @db.Uuid
+  createdAt  DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+}
+
+// ---------------------------------------------------------------------------
+// Audit universe
+// ---------------------------------------------------------------------------
+
+model AuditEntity {
+  id                     String     @id @default(uuid()) @db.Uuid
+  tenantId               String     @db.Uuid
+  parentId               String?    @db.Uuid
+  type                   EntityType
+  code                   String
+  name                   String
+  description            String?
+  ownerId                String?    @db.Uuid
+  country                String?
+  strategicObjectives    String[]   @default([])
+  regulatoryRequirements Json       @default("[]")
+  riskRating             RiskRating @default(MEDIUM)
+  riskScore              Decimal?   @db.Decimal(6, 2)
+  lastAuditDate          DateTime?
+  nextAuditDue           DateTime?
+  auditFrequencyMonths   Int?
+  isActive               Boolean    @default(true)
+  metadata               Json       @default("{}")
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  deletedAt              DateTime?
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id])
+  parent   AuditEntity?  @relation("EntityTree", fields: [parentId], references: [id])
+  children AuditEntity[] @relation("EntityTree")
+  owner    User?         @relation("EntityOwner", fields: [ownerId], references: [id])
+
+  processes          Process[]
+  risks              Risk[]
+  planItems          AuditPlanItem[]
+  engagements        Engagement[]
+  findings           Finding[]
+  scopedRoles        UserRole[]
+  managementRequests ManagementRequest[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type])
+  @@index([tenantId, parentId])
+  // Trigram index for global search (pg_trgm, created in the rls_and_audit_trail migration)
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "AuditEntity_name_trgm_idx")
+}
+
+model Process {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @db.Uuid
+  entityId    String    @db.Uuid
+  code        String
+  name        String
+  description String?
+  ownerId     String?   @db.Uuid
+  category    String?
+  isKey       Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id])
+  entity   AuditEntity @relation(fields: [entityId], references: [id])
+  owner    User?       @relation("ProcessOwner", fields: [ownerId], references: [id])
+  risks    Risk[]
+  controls Control[]
+  findings Finding[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// Risk assessment engine
+// ---------------------------------------------------------------------------
+
+model RiskCategory {
+  id          String  @id @default(uuid()) @db.Uuid
+  tenantId    String  @db.Uuid
+  code        String
+  name        String
+  description String?
+  weight      Decimal @default(1) @db.Decimal(5, 2)
+  colour      String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  risks  Risk[]
+
+  @@unique([tenantId, code])
+}
+
+/// Custom scoring model. likelihoodScale/impactScale hold labelled 1-5 anchors;
+/// weights hold factor weights (e.g. { impact: 1.0, likelihood: 1.0, velocity: 0.25 }).
+model ScoringModel {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @db.Uuid
+  name            String
+  isDefault       Boolean  @default(false)
+  likelihoodScale Json
+  impactScale     Json
+  weights         Json     @default("{\"likelihood\":1,\"impact\":1,\"velocity\":0}")
+  thresholds      Json     @default("{\"LOW\":5,\"MEDIUM\":10,\"HIGH\":16,\"CRITICAL\":25}")
+  appetite        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  assessments RiskAssessment[]
+
+  @@unique([tenantId, name])
+}
+
+model Risk {
+  id                   String       @id @default(uuid()) @db.Uuid
+  tenantId             String       @db.Uuid
+  code                 String
+  title                String
+  description          String?
+  categoryId           String?      @db.Uuid
+  entityId             String?      @db.Uuid
+  processId            String?      @db.Uuid
+  ownerId              String?      @db.Uuid
+  source               String?
+  status               RiskStatus   @default(ACTIVE)
+  inherentLikelihood   Int          @default(3)
+  inherentImpact       Int          @default(3)
+  inherentScore        Decimal      @default(9) @db.Decimal(6, 2)
+  controlEffectiveness Int          @default(3) // 1 (none) .. 5 (fully effective)
+  residualLikelihood   Int          @default(3)
+  residualImpact       Int          @default(3)
+  residualScore        Decimal      @default(9) @db.Decimal(6, 2)
+  velocity             RiskVelocity @default(MODERATE)
+  rating               RiskRating   @default(MEDIUM)
+  appetiteThreshold    Decimal?     @db.Decimal(6, 2)
+  withinAppetite       Boolean?
+  aiSuggestedRating    RiskRating?
+  aiRationale          String?
+  lastAssessedAt       DateTime?
+  tags                 String[]     @default([])
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  deletedAt            DateTime?
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id])
+  category RiskCategory? @relation(fields: [categoryId], references: [id])
+  entity   AuditEntity?  @relation(fields: [entityId], references: [id])
+  process  Process?      @relation(fields: [processId], references: [id])
+  owner    User?         @relation("RiskOwner", fields: [ownerId], references: [id])
+
+  assessments  RiskAssessment[]
+  controls     RiskControl[]
+  programSteps AuditProgramStep[]
+  workpapers   Workpaper[]
+  findings     Finding[]
+  signals      RiskSignal[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, rating])
+  @@index([tenantId, entityId])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Risk_title_trgm_idx")
+}
+
+model RiskAssessment {
+  id                   String       @id @default(uuid()) @db.Uuid
+  tenantId             String       @db.Uuid
+  riskId               String       @db.Uuid
+  scoringModelId       String?      @db.Uuid
+  periodLabel          String // e.g. FY2026-Q1
+  inherentLikelihood   Int
+  inherentImpact       Int
+  inherentScore        Decimal      @db.Decimal(6, 2)
+  controlEffectiveness Int
+  residualLikelihood   Int
+  residualImpact       Int
+  residualScore        Decimal      @db.Decimal(6, 2)
+  velocity             RiskVelocity
+  rating               RiskRating
+  rationale            String?
+  assessedById         String       @db.Uuid
+  assessedAt           DateTime     @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  risk         Risk          @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  scoringModel ScoringModel? @relation(fields: [scoringModelId], references: [id])
+  assessedBy   User          @relation("RiskAssessor", fields: [assessedById], references: [id])
+
+  @@index([tenantId, riskId, assessedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Controls
+// ---------------------------------------------------------------------------
+
+model Control {
+  id                  String               @id @default(uuid()) @db.Uuid
+  tenantId            String               @db.Uuid
+  code                String
+  title               String
+  description         String?
+  processId           String?              @db.Uuid
+  ownerId             String?              @db.Uuid
+  frequency           ControlFrequency     @default(MONTHLY)
+  type                ControlType          @default(PREVENTIVE)
+  nature              ControlNature        @default(MANUAL)
+  isKeyControl        Boolean              @default(false)
+  effectiveness       ControlEffectiveness @default(NOT_TESTED)
+  designEffective     Boolean?
+  operatingEffective  Boolean?
+  lastTestedAt        DateTime?
+  frameworkReferences Json                 @default("[]") // [{framework:"COSO", ref:"CA-1"}]
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  process Process? @relation(fields: [processId], references: [id])
+  owner   User?    @relation("ControlOwner", fields: [ownerId], references: [id])
+
+  risks        RiskControl[]
+  tests        ControlTest[]
+  programSteps AuditProgramStep[]
+  workpapers   Workpaper[]
+  findings     Finding[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, processId])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Control_title_trgm_idx")
+}
+
+model RiskControl {
+  tenantId  String @db.Uuid
+  riskId    String @db.Uuid
+  controlId String @db.Uuid
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  risk    Risk    @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  control Control @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@id([riskId, controlId])
+}
+
+model ControlTest {
+  id             String            @id @default(uuid()) @db.Uuid
+  tenantId       String            @db.Uuid
+  controlId      String            @db.Uuid
+  engagementId   String?           @db.Uuid
+  workpaperId    String?           @db.Uuid
+  testType       ControlTestType
+  periodStart    DateTime?
+  periodEnd      DateTime?
+  populationSize Int?
+  sampleSize     Int?
+  exceptions     Int               @default(0)
+  result         ControlTestResult @default(NOT_STARTED)
+  procedure      String?
+  conclusion     String?
+  remediation    String?
+  testedById     String?           @db.Uuid
+  testedAt       DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  control    Control     @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  engagement Engagement? @relation(fields: [engagementId], references: [id])
+  workpaper  Workpaper?  @relation(fields: [workpaperId], references: [id])
+  testedBy   User?       @relation("ControlTester", fields: [testedById], references: [id])
+
+  @@index([tenantId, controlId])
+  @@index([engagementId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit planning
+// ---------------------------------------------------------------------------
+
+model AuditPlan {
+  id                String     @id @default(uuid()) @db.Uuid
+  tenantId          String     @db.Uuid
+  title             String
+  fiscalYear        Int
+  horizonYears      Int        @default(1)
+  startDate         DateTime
+  endDate           DateTime
+  status            PlanStatus @default(DRAFT)
+  version           Int        @default(1)
+  totalBudgetHours  Decimal?   @db.Decimal(10, 2)
+  totalBudgetAmount Decimal?   @db.Decimal(14, 2)
+  currency          String     @default("USD")
+  narrative         String?
+  createdById       String     @db.Uuid
+  approvedById      String?    @db.Uuid
+  approvedAt        DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  tenant     Tenant          @relation(fields: [tenantId], references: [id])
+  createdBy  User            @relation("PlanCreator", fields: [createdById], references: [id])
+  approvedBy User?           @relation("PlanApprover", fields: [approvedById], references: [id])
+  items      AuditPlanItem[]
+
+  @@unique([tenantId, fiscalYear, version])
+  @@index([tenantId, status])
+}
+
+model AuditPlanItem {
+  id             String         @id @default(uuid()) @db.Uuid
+  tenantId       String         @db.Uuid
+  planId         String         @db.Uuid
+  entityId       String?        @db.Uuid
+  engagementId   String?        @unique @db.Uuid
+  title          String
+  description    String?
+  source         PlanItemSource @default(RISK_BASED)
+  engagementType EngagementType @default(OPERATIONAL)
+  riskRating     RiskRating     @default(MEDIUM)
+  priority       Int            @default(3)
+  plannedYear    Int
+  plannedQuarter Int?
+  plannedStart   DateTime?
+  plannedEnd     DateTime?
+  budgetHours    Decimal?       @db.Decimal(10, 2)
+  budgetAmount   Decimal?       @db.Decimal(14, 2)
+  leadId         String?        @db.Uuid
+  status         PlanItemStatus @default(PLANNED)
+  rationale      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
+  plan               AuditPlan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  entity             AuditEntity?        @relation(fields: [entityId], references: [id])
+  engagement         Engagement?         @relation(fields: [engagementId], references: [id])
+  lead               User?               @relation("PlanItemLead", fields: [leadId], references: [id])
+  managementRequests ManagementRequest[]
+
+  @@index([tenantId, planId])
+  @@index([tenantId, status])
+}
+
+model ManagementRequest {
+  id            String                  @id @default(uuid()) @db.Uuid
+  tenantId      String                  @db.Uuid
+  title         String
+  description   String?
+  requestedById String?                 @db.Uuid
+  requesterName String?
+  entityId      String?                 @db.Uuid
+  planItemId    String?                 @db.Uuid
+  priority      TaskPriority            @default(MEDIUM)
+  status        ManagementRequestStatus @default(RECEIVED)
+  receivedAt    DateTime                @default(now())
+  decisionNote  String?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  requestedBy User?          @relation(fields: [requestedById], references: [id])
+  entity      AuditEntity?   @relation(fields: [entityId], references: [id])
+  planItem    AuditPlanItem? @relation(fields: [planItemId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Engagements (audit lifecycle)
+// ---------------------------------------------------------------------------
+
+model Engagement {
+  id               String           @id @default(uuid()) @db.Uuid
+  tenantId         String           @db.Uuid
+  auditNumber      String
+  title            String
+  type             EngagementType   @default(OPERATIONAL)
+  entityId         String?          @db.Uuid
+  objectives       String?
+  scope            String?
+  outOfScope       String?
+  background       String?
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  stage            EngagementStage  @default(PLANNING)
+  status           EngagementStatus @default(ACTIVE)
+  riskRating       RiskRating       @default(MEDIUM)
+  plannedStart     DateTime?
+  plannedEnd       DateTime?
+  actualStart      DateTime?
+  actualEnd        DateTime?
+  budgetHours      Decimal?         @db.Decimal(10, 2)
+  budgetAmount     Decimal?         @db.Decimal(14, 2)
+  leadId           String?          @db.Uuid
+  managerId        String?          @db.Uuid
+  partnerId        String?          @db.Uuid
+  opinion          AuditOpinion     @default(NOT_RATED)
+  executiveSummary String?
+  reportIssuedAt   DateTime?
+  reportDocumentId String?          @db.Uuid
+  metadata         Json             @default("{}")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id])
+  entity  AuditEntity? @relation(fields: [entityId], references: [id])
+  lead    User?        @relation("EngagementLead", fields: [leadId], references: [id])
+  manager User?        @relation("EngagementManager", fields: [managerId], references: [id])
+  partner User?        @relation("EngagementPartner", fields: [partnerId], references: [id])
+
+  planItem     AuditPlanItem?
+  members      EngagementMember[]
+  stakeholders EngagementStakeholder[]
+  milestones   EngagementMilestone[]
+  stageHistory EngagementStageHistory[]
+  programs     AuditProgram[]
+  workpapers   Workpaper[]
+  evidence     Evidence[]
+  findings     Finding[]
+  controlTests ControlTest[]
+  requests     DocumentRequest[]
+  tasks        Task[]
+  timeEntries  TimeEntry[]
+
+  @@unique([tenantId, auditNumber])
+  @@index([tenantId, stage, status])
+  @@index([tenantId, entityId])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Engagement_title_trgm_idx")
+}
+
+model EngagementMember {
+  id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String         @db.Uuid
+  engagementId String         @db.Uuid
+  userId       String         @db.Uuid
+  role         EngagementRole
+  plannedHours Decimal?       @db.Decimal(8, 2)
+  addedAt      DateTime       @default(now())
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  engagement Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([engagementId, userId])
+  @@index([tenantId, userId])
+}
+
+model EngagementStakeholder {
+  id           String  @id @default(uuid()) @db.Uuid
+  tenantId     String  @db.Uuid
+  engagementId String  @db.Uuid
+  userId       String? @db.Uuid
+  name         String
+  email        String?
+  title        String?
+  organisation String?
+  role         String // e.g. Auditee, Sponsor, Process Owner
+  isPrimary    Boolean @default(false)
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  engagement Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id])
+
+  @@index([engagementId])
+}
+
+model EngagementMilestone {
+  id           String           @id @default(uuid()) @db.Uuid
+  tenantId     String           @db.Uuid
+  engagementId String           @db.Uuid
+  name         String
+  stage        EngagementStage?
+  dueDate      DateTime
+  completedAt  DateTime?
+  sortOrder    Int              @default(0)
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  engagement Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  @@index([engagementId])
+}
+
+model EngagementStageHistory {
+  id           String           @id @default(uuid()) @db.Uuid
+  tenantId     String           @db.Uuid
+  engagementId String           @db.Uuid
+  fromStage    EngagementStage?
+  toStage      EngagementStage
+  changedById  String           @db.Uuid
+  comment      String?
+  changedAt    DateTime         @default(now())
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  engagement Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  changedBy  User       @relation(fields: [changedById], references: [id])
+
+  @@index([engagementId, changedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Audit programmes and workpapers
+// ---------------------------------------------------------------------------
+
+model AuditProgram {
+  id            String        @id @default(uuid()) @db.Uuid
+  tenantId      String        @db.Uuid
+  engagementId  String        @db.Uuid
+  title         String
+  description   String?
+  status        ProgramStatus @default(DRAFT)
+  libraryItemId String?       @db.Uuid
+  approvedById  String?       @db.Uuid
+  approvedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id])
+  engagement  Engagement         @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  libraryItem LibraryItem?       @relation(fields: [libraryItemId], references: [id])
+  approvedBy  User?              @relation("ProgramApprover", fields: [approvedById], references: [id])
+  steps       AuditProgramStep[]
+
+  @@index([tenantId, engagementId])
+}
+
+model AuditProgramStep {
+  id             String     @id @default(uuid()) @db.Uuid
+  tenantId       String     @db.Uuid
+  programId      String     @db.Uuid
+  section        String
+  reference      String
+  sortOrder      Int        @default(0)
+  objective      String
+  procedure      String
+  riskId         String?    @db.Uuid
+  controlId      String?    @db.Uuid
+  assigneeId     String?    @db.Uuid
+  estimatedHours Decimal?   @db.Decimal(8, 2)
+  status         StepStatus @default(NOT_STARTED)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  tenant     Tenant       @relation(fields: [tenantId], references: [id])
+  program    AuditProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  risk       Risk?        @relation(fields: [riskId], references: [id])
+  control    Control?     @relation(fields: [controlId], references: [id])
+  assignee   User?        @relation("StepAssignee", fields: [assigneeId], references: [id])
+  workpapers Workpaper[]
+
+  @@unique([programId, reference])
+  @@index([tenantId, programId])
+}
+
+model WorkpaperTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String?  @db.Uuid // null = global BDO template
+  name        String
+  category    String?
+  description String?
+  structure   Json // ordered sections with prompts and required flags
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant     Tenant?     @relation(fields: [tenantId], references: [id])
+  workpapers Workpaper[]
+
+  @@index([tenantId])
+}
+
+model Workpaper {
+  id             String          @id @default(uuid()) @db.Uuid
+  tenantId       String          @db.Uuid
+  engagementId   String          @db.Uuid
+  programStepId  String?         @db.Uuid
+  templateId     String?         @db.Uuid
+  reference      String // e.g. B.2.1
+  title          String
+  objective      String?
+  riskId         String?         @db.Uuid
+  controlId      String?         @db.Uuid
+  procedure      String?
+  testPerformed  String?
+  results        String?
+  exceptions     String?
+  conclusion     String?
+  content        Json            @default("{}") // template-driven rich sections
+  status         WorkpaperStatus @default(DRAFT)
+  currentVersion Int             @default(1)
+  preparedById   String?         @db.Uuid
+  preparedAt     DateTime?
+  reviewedById   String?         @db.Uuid
+  reviewedAt     DateTime?
+  signedOffById  String?         @db.Uuid
+  signedOffAt    DateTime?
+  isLocked       Boolean         @default(false)
+  sortOrder      Int             @default(0)
+  aiSummary      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id])
+  engagement  Engagement         @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  programStep AuditProgramStep?  @relation(fields: [programStepId], references: [id])
+  template    WorkpaperTemplate? @relation(fields: [templateId], references: [id])
+  risk        Risk?              @relation(fields: [riskId], references: [id])
+  control     Control?           @relation(fields: [controlId], references: [id])
+  preparedBy  User?              @relation("WorkpaperPreparer", fields: [preparedById], references: [id])
+  reviewedBy  User?              @relation("WorkpaperReviewer", fields: [reviewedById], references: [id])
+  signedOffBy User?              @relation("WorkpaperSignOff", fields: [signedOffById], references: [id])
+
+  versions     WorkpaperVersion[]
+  reviewNotes  ReviewNote[]
+  evidence     Evidence[]
+  controlTests ControlTest[]
+  findings     Finding[]
+
+  @@unique([engagementId, reference])
+  @@index([tenantId, engagementId, status])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Workpaper_title_trgm_idx")
+}
+
+model WorkpaperVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @db.Uuid
+  workpaperId   String   @db.Uuid
+  versionNumber Int
+  snapshot      Json
+  changeSummary String?
+  changedById   String   @db.Uuid
+  createdAt     DateTime @default(now())
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  workpaper Workpaper @relation(fields: [workpaperId], references: [id], onDelete: Cascade)
+  changedBy User      @relation(fields: [changedById], references: [id])
+
+  @@unique([workpaperId, versionNumber])
+}
+
+model ReviewNote {
+  id           String             @id @default(uuid()) @db.Uuid
+  tenantId     String             @db.Uuid
+  workpaperId  String             @db.Uuid
+  text         String
+  priority     ReviewNotePriority @default(NORMAL)
+  status       ReviewNoteStatus   @default(OPEN)
+  raisedById   String             @db.Uuid
+  assignedToId String?            @db.Uuid
+  response     String?
+  respondedAt  DateTime?
+  clearedById  String?            @db.Uuid
+  clearedAt    DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  workpaper  Workpaper @relation(fields: [workpaperId], references: [id], onDelete: Cascade)
+  raisedBy   User      @relation("ReviewNoteRaiser", fields: [raisedById], references: [id])
+  assignedTo User?     @relation("ReviewNoteAssignee", fields: [assignedToId], references: [id])
+  clearedBy  User?     @relation("ReviewNoteClearer", fields: [clearedById], references: [id])
+
+  @@index([tenantId, workpaperId, status])
+}
+
+/// Formal sign-off record for any reviewable object (workpaper, finding, report, plan).
+model Review {
+  id         String         @id @default(uuid()) @db.Uuid
+  tenantId   String         @db.Uuid
+  targetType String
+  targetId   String         @db.Uuid
+  level      ReviewLevel
+  reviewerId String         @db.Uuid
+  decision   ReviewDecision
+  comment    String?
+  decidedAt  DateTime       @default(now())
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  reviewer User   @relation(fields: [reviewerId], references: [id])
+
+  @@index([tenantId, targetType, targetId])
+}
+
+// ---------------------------------------------------------------------------
+// Documents and evidence
+// ---------------------------------------------------------------------------
+
+model Document {
+  id             String                 @id @default(uuid()) @db.Uuid
+  tenantId       String                 @db.Uuid
+  ownerType      String? // Engagement | Workpaper | Finding | DocumentRequest | LibraryItem | Report
+  ownerId        String?                @db.Uuid
+  fileName       String
+  mimeType       String
+  sizeBytes      BigInt
+  storageKey     String
+  checksumSha256 String?
+  classification DocumentClassification @default(CONFIDENTIAL)
+  currentVersion Int                    @default(1)
+  uploadedById   String                 @db.Uuid
+  tags           String[]               @default([])
+  extractedText  String?
+  aiSummary      String?
+  isQuarantined  Boolean                @default(false)
+  uploadedAt     DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  deletedAt      DateTime?
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  uploadedBy User              @relation(fields: [uploadedById], references: [id])
+  versions   DocumentVersion[]
+  evidence   Evidence[]
+  requests   DocumentRequest[] @relation("RequestDocuments")
+
+  @@index([tenantId, ownerType, ownerId])
+}
+
+model DocumentVersion {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @db.Uuid
+  documentId     String   @db.Uuid
+  versionNumber  Int
+  storageKey     String
+  sizeBytes      BigInt
+  checksumSha256 String?
+  uploadedById   String   @db.Uuid
+  note           String?
+  createdAt      DateTime @default(now())
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+
+  @@unique([documentId, versionNumber])
+}
+
+model Evidence {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @db.Uuid
+  engagementId String       @db.Uuid
+  workpaperId  String?      @db.Uuid
+  documentId   String?      @db.Uuid
+  reference    String
+  description  String
+  type         EvidenceType @default(DOCUMENT)
+  obtainedFrom String?
+  obtainedAt   DateTime?
+  obtainedById String       @db.Uuid
+  isSufficient Boolean?
+  aiAnalysis   Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  engagement Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  workpaper  Workpaper? @relation(fields: [workpaperId], references: [id])
+  document   Document?  @relation(fields: [documentId], references: [id])
+  obtainedBy User       @relation(fields: [obtainedById], references: [id])
+  findings   Finding[]  @relation("FindingEvidence")
+
+  @@unique([engagementId, reference])
+  @@index([tenantId, workpaperId])
+}
+
+// ---------------------------------------------------------------------------
+// Findings, recommendations and remediation
+// ---------------------------------------------------------------------------
+
+model Finding {
+  id                 String             @id @default(uuid()) @db.Uuid
+  tenantId           String             @db.Uuid
+  engagementId       String             @db.Uuid
+  workpaperId        String?            @db.Uuid
+  entityId           String?            @db.Uuid
+  processId          String?            @db.Uuid
+  riskId             String?            @db.Uuid
+  controlId          String?            @db.Uuid
+  reference          String
+  title              String
+  severity           FindingSeverity    @default(MEDIUM)
+  status             FindingStatus      @default(DRAFT)
+  condition          String
+  criteria           String
+  cause              String?
+  impact             String?
+  recommendation     String?
+  managementResponse String?
+  rootCauseCategory  RootCauseCategory?
+  category           String?
+  actionOwnerId      String?            @db.Uuid
+  actionOwnerName    String?
+  actionOwnerEmail   String?
+  dueDate            DateTime?
+  originalDueDate    DateTime?
+  extensionCount     Int                @default(0)
+  agreedAt           DateTime?
+  implementedAt      DateTime?
+  validatedById      String?            @db.Uuid
+  validatedAt        DateTime?
+  closedAt           DateTime?
+  isRepeat           Boolean            @default(false)
+  repeatOfId         String?            @db.Uuid
+  raisedById         String             @db.Uuid
+  reminderCount      Int                @default(0)
+  lastReminderAt     DateTime?
+  escalationLevel    Int                @default(0)
+  aiDraft            Json?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deletedAt          DateTime?
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  engagement  Engagement   @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  workpaper   Workpaper?   @relation(fields: [workpaperId], references: [id])
+  entity      AuditEntity? @relation(fields: [entityId], references: [id])
+  process     Process?     @relation(fields: [processId], references: [id])
+  risk        Risk?        @relation(fields: [riskId], references: [id])
+  control     Control?     @relation(fields: [controlId], references: [id])
+  actionOwner User?        @relation("FindingActionOwner", fields: [actionOwnerId], references: [id])
+  validatedBy User?        @relation("FindingValidator", fields: [validatedById], references: [id])
+  raisedBy    User         @relation("FindingRaiser", fields: [raisedById], references: [id])
+  repeatOf    Finding?     @relation("RepeatFinding", fields: [repeatOfId], references: [id])
+  repeats     Finding[]    @relation("RepeatFinding")
+
+  recommendations Recommendation[]
+  statusHistory   FindingStatusHistory[]
+  evidence        Evidence[]             @relation("FindingEvidence")
+
+  @@unique([engagementId, reference])
+  @@index([tenantId, status, dueDate])
+  @@index([tenantId, severity])
+  @@index([tenantId, entityId])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Finding_title_trgm_idx")
+}
+
+model Recommendation {
+  id           String               @id @default(uuid()) @db.Uuid
+  tenantId     String               @db.Uuid
+  findingId    String               @db.Uuid
+  sequence     Int                  @default(1)
+  text         String
+  priority     TaskPriority         @default(MEDIUM)
+  ownerId      String?              @db.Uuid
+  ownerName    String?
+  dueDate      DateTime?
+  status       RecommendationStatus @default(PROPOSED)
+  actionPlan   String?
+  progressNote String?
+  progressPct  Int                  @default(0)
+  completedAt  DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  finding Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  owner   User?   @relation(fields: [ownerId], references: [id])
+
+  @@index([tenantId, findingId])
+  @@index([tenantId, status, dueDate])
+}
+
+model FindingStatusHistory {
+  id          String         @id @default(uuid()) @db.Uuid
+  tenantId    String         @db.Uuid
+  findingId   String         @db.Uuid
+  fromStatus  FindingStatus?
+  toStatus    FindingStatus
+  changedById String         @db.Uuid
+  comment     String?
+  changedAt   DateTime       @default(now())
+
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  finding   Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  changedBy User    @relation(fields: [changedById], references: [id])
+
+  @@index([findingId, changedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Document request portal
+// ---------------------------------------------------------------------------
+
+model DocumentRequest {
+  id             String        @id @default(uuid()) @db.Uuid
+  tenantId       String        @db.Uuid
+  engagementId   String        @db.Uuid
+  reference      String
+  title          String
+  description    String?
+  requestedById  String        @db.Uuid
+  assigneeId     String?       @db.Uuid
+  assigneeEmail  String?
+  dueDate        DateTime
+  status         RequestStatus @default(OPEN)
+  responseNote   String?
+  submittedAt    DateTime?
+  acceptedAt     DateTime?
+  returnReason   String?
+  reminderCount  Int           @default(0)
+  lastReminderAt DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
+  engagement  Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  requestedBy User       @relation("RequestRaiser", fields: [requestedById], references: [id])
+  assignee    User?      @relation("RequestAssignee", fields: [assigneeId], references: [id])
+  documents   Document[] @relation("RequestDocuments")
+
+  @@unique([engagementId, reference])
+  @@index([tenantId, assigneeId, status])
+  @@index([tenantId, dueDate])
+}
+
+// ---------------------------------------------------------------------------
+// Tasks, comments, notifications, approvals, audit trail
+// ---------------------------------------------------------------------------
+
+model Task {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @db.Uuid
+  engagementId String?      @db.Uuid
+  targetType   String?
+  targetId     String?      @db.Uuid
+  title        String
+  description  String?
+  assigneeId   String?      @db.Uuid
+  createdById  String       @db.Uuid
+  dueDate      DateTime?
+  priority     TaskPriority @default(MEDIUM)
+  status       TaskStatus   @default(TODO)
+  completedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  engagement Engagement? @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  assignee   User?       @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy  User        @relation("TaskCreator", fields: [createdById], references: [id])
+
+  @@index([tenantId, assigneeId, status])
+  @@index([tenantId, engagementId])
+}
+
+model Comment {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @db.Uuid
+  targetType String
+  targetId   String    @db.Uuid
+  parentId   String?   @db.Uuid
+  authorId   String    @db.Uuid
+  body       String
+  mentions   String[]  @default([])
+  isInternal Boolean   @default(true) // false = visible to business users
+  editedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  deletedAt  DateTime?
+
+  tenant  Tenant    @relation(fields: [tenantId], references: [id])
+  author  User      @relation(fields: [authorId], references: [id])
+  parent  Comment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentThread")
+
+  @@index([tenantId, targetType, targetId])
+}
+
+model Notification {
+  id        String              @id @default(uuid()) @db.Uuid
+  tenantId  String              @db.Uuid
+  userId    String              @db.Uuid
+  type      String
+  title     String
+  body      String?
+  link      String?
+  channel   NotificationChannel @default(IN_APP)
+  payload   Json                @default("{}")
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, readAt])
+}
+
+model Approval {
+  id          String         @id @default(uuid()) @db.Uuid
+  tenantId    String         @db.Uuid
+  targetType  String
+  targetId    String         @db.Uuid
+  step        Int            @default(1)
+  approverId  String         @db.Uuid
+  status      ApprovalStatus @default(PENDING)
+  comment     String?
+  requestedAt DateTime       @default(now())
+  decidedAt   DateTime?
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  approver User   @relation(fields: [approverId], references: [id])
+
+  @@index([tenantId, targetType, targetId])
+  @@index([tenantId, approverId, status])
+}
+
+/// Immutable audit trail. Rows are append-only; a DB trigger blocks UPDATE/DELETE.
+model AuditTrail {
+  id         BigInt   @id @default(autoincrement())
+  tenantId   String   @db.Uuid
+  actorId    String?  @db.Uuid
+  actorEmail String?
+  action     String // e.g. finding.status_changed
+  targetType String
+  targetId   String?
+  before     Json?
+  after      Json?
+  metadata   Json     @default("{}")
+  ipAddress  String?
+  userAgent  String?
+  requestId  String?
+  occurredAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  actor  User?  @relation(fields: [actorId], references: [id])
+
+  @@index([tenantId, targetType, targetId])
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, actorId])
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge library and frameworks
+// ---------------------------------------------------------------------------
+
+model Framework {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique // COSO, COBIT, ISO31000, ISO27001, IFRS, SOX, IIA
+  name        String
+  version     String?
+  description String?
+
+  references FrameworkReference[]
+}
+
+model FrameworkReference {
+  id          String  @id @default(uuid()) @db.Uuid
+  frameworkId String  @db.Uuid
+  refCode     String
+  title       String
+  description String?
+  parentId    String? @db.Uuid
+
+  framework Framework                 @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  parent    FrameworkReference?       @relation("FrameworkTree", fields: [parentId], references: [id])
+  children  FrameworkReference[]      @relation("FrameworkTree")
+  library   LibraryItemFrameworkRef[]
+
+  @@unique([frameworkId, refCode])
+}
+
+model LibraryItem {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String?         @db.Uuid // null = global BDO content
+  type            LibraryItemType
+  code            String
+  title           String
+  summary         String?
+  content         Json
+  industry        String?
+  tags            String[]        @default([])
+  version         Int             @default(1)
+  parentVersionId String?         @db.Uuid
+  status          LibraryStatus   @default(DRAFT)
+  usageCount      Int             @default(0)
+  rating          Decimal?        @db.Decimal(3, 2)
+  createdById     String          @db.Uuid
+  approvedById    String?         @db.Uuid
+  approvedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  tenant        Tenant?                   @relation(fields: [tenantId], references: [id])
+  createdBy     User                      @relation("LibraryCreator", fields: [createdById], references: [id])
+  approvedBy    User?                     @relation("LibraryApprover", fields: [approvedById], references: [id])
+  parentVersion LibraryItem?              @relation("LibraryVersions", fields: [parentVersionId], references: [id])
+  newerVersions LibraryItem[]             @relation("LibraryVersions")
+  frameworkRefs LibraryItemFrameworkRef[]
+  programs      AuditProgram[]
+
+  @@unique([tenantId, code, version])
+  @@index([type, status])
+}
+
+model LibraryItemFrameworkRef {
+  libraryItemId String @db.Uuid
+  referenceId   String @db.Uuid
+
+  libraryItem LibraryItem        @relation(fields: [libraryItemId], references: [id], onDelete: Cascade)
+  reference   FrameworkReference @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+
+  @@id([libraryItemId, referenceId])
+}
+
+// ---------------------------------------------------------------------------
+// Time and resource management
+// ---------------------------------------------------------------------------
+
+model ChargeCode {
+  id         String  @id @default(uuid()) @db.Uuid
+  tenantId   String  @db.Uuid
+  code       String
+  name       String
+  isBillable Boolean @default(true)
+  isActive   Boolean @default(true)
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id])
+  entries TimeEntry[]
+
+  @@unique([tenantId, code])
+}
+
+model Timesheet {
+  id           String          @id @default(uuid()) @db.Uuid
+  tenantId     String          @db.Uuid
+  userId       String          @db.Uuid
+  weekStart    DateTime        @db.Date
+  status       TimesheetStatus @default(OPEN)
+  totalHours   Decimal         @default(0) @db.Decimal(6, 2)
+  submittedAt  DateTime?
+  approvedById String?         @db.Uuid
+  approvedAt   DateTime?
+  rejectReason String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  user       User        @relation("TimesheetOwner", fields: [userId], references: [id])
+  approvedBy User?       @relation("TimesheetApprover", fields: [approvedById], references: [id])
+  entries    TimeEntry[]
+
+  @@unique([userId, weekStart])
+  @@index([tenantId, status])
+}
+
+model TimeEntry {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  timesheetId  String   @db.Uuid
+  engagementId String?  @db.Uuid
+  chargeCodeId String   @db.Uuid
+  date         DateTime @db.Date
+  hours        Decimal  @db.Decimal(5, 2)
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  timesheet  Timesheet   @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+  engagement Engagement? @relation(fields: [engagementId], references: [id])
+  chargeCode ChargeCode  @relation(fields: [chargeCodeId], references: [id])
+
+  @@index([tenantId, engagementId, date])
+}
+
+model StaffAvailability {
+  id          String           @id @default(uuid()) @db.Uuid
+  tenantId    String           @db.Uuid
+  userId      String           @db.Uuid
+  type        AvailabilityType
+  startDate   DateTime         @db.Date
+  endDate     DateTime         @db.Date
+  hoursPerDay Decimal          @default(8) @db.Decimal(4, 2)
+  note        String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, startDate])
+}
+
+// ---------------------------------------------------------------------------
+// AI copilot, risk radar and continuous monitoring
+// ---------------------------------------------------------------------------
+
+model AiInteraction {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  userId       String   @db.Uuid
+  feature      String // e.g. workpaper.draft_procedure, finding.draft, nl_search
+  targetType   String?
+  targetId     String?  @db.Uuid
+  model        String
+  promptTokens Int      @default(0)
+  outputTokens Int      @default(0)
+  latencyMs    Int?
+  request      Json
+  response     Json
+  accepted     Boolean?
+  rating       Int?
+  createdAt    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, feature, createdAt])
+}
+
+model RiskSignal {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @db.Uuid
+  source         String // regulator, news, internal_incident, industry
+  title          String
+  summary        String?
+  url            String?
+  publishedAt    DateTime?
+  relevanceScore Decimal?         @db.Decimal(4, 3)
+  status         RiskSignalStatus @default(NEW)
+  riskId         String?          @db.Uuid
+  metadata       Json             @default("{}")
+  createdAt      DateTime         @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  risk   Risk?  @relation(fields: [riskId], references: [id])
+
+  @@index([tenantId, status, createdAt])
+}
+
+model DataConnector {
+  id         String        @id @default(uuid()) @db.Uuid
+  tenantId   String        @db.Uuid
+  name       String
+  type       ConnectorType
+  configEnc  String // encrypted JSON connection config
+  schedule   String? // cron expression
+  lastRunAt  DateTime?
+  lastStatus String?
+  isActive   Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id])
+  rules  MonitoringRule[]
+
+  @@unique([tenantId, name])
+}
+
+model MonitoringRule {
+  id          String          @id @default(uuid()) @db.Uuid
+  tenantId    String          @db.Uuid
+  connectorId String?         @db.Uuid
+  code        String
+  name        String
+  description String?
+  ruleType    String // duplicate_payment, threshold, benford, weekend_posting, segregation_of_duties, custom_sql
+  definition  Json
+  severity    FindingSeverity @default(MEDIUM)
+  isActive    Boolean         @default(true)
+  lastRunAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  connector DataConnector?    @relation(fields: [connectorId], references: [id])
+  alerts    MonitoringAlert[]
+
+  @@unique([tenantId, code])
+}
+
+model MonitoringAlert {
+  id         String                @id @default(uuid()) @db.Uuid
+  tenantId   String                @db.Uuid
+  ruleId     String                @db.Uuid
+  title      String
+  detail     Json
+  amount     Decimal?              @db.Decimal(16, 2)
+  status     MonitoringAlertStatus @default(OPEN)
+  assigneeId String?               @db.Uuid
+  findingId  String?               @db.Uuid
+  detectedAt DateTime              @default(now())
+  resolvedAt DateTime?
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id])
+  rule     MonitoringRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  assignee User?          @relation(fields: [assigneeId], references: [id])
+
+  @@index([tenantId, status, detectedAt])
+}

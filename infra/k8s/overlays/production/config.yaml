@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auditsphere-config
+data:
+  API_BASE_URL: https://auditsphere.bdo-ea.com
+  WEB_BASE_URL: https://auditsphere.bdo-ea.com
+  CORS_ORIGINS: https://auditsphere.bdo-ea.com
+  ENTRA_REDIRECT_URI: https://auditsphere.bdo-ea.com/api/v1/auth/entra/callback
+  S3_ENDPOINT: https://s3.af-south-1.amazonaws.com
+  S3_REGION: af-south-1
+  S3_BUCKET: auditsphere-documents-prod
+  AI_ENABLED: "true"
+  SMTP_FROM: BDO AuditSphere <no-reply@bdo-ea.com>

@@ -1,0 +1,37 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "outDir": "dist",
+    "baseUrl": "./",
+    "declaration": false,
+    "removeComments": true,
+    "allowSyntheticDefaultImports": true,
+    "strictPropertyInitialization": false,
+    "noImplicitAny": true,
+    "useDefineForClassFields": false,
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo",
+    "types": ["node", "jest", "multer"]
+  },
+  "watchOptions": {
+    "excludeDirectories": [
+      "node_modules",
+      "dist",
+      "../../.local-dev",
+      "../../.local-storage",
+      "../../.turbo",
+      "../../apps/web/.next",
+      "../../node_modules/.prisma",
+      "../../packages/db/dist",
+      "../../packages/shared/dist"
+    ]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist", "../../.local-dev", "../../.local-storage", "../../apps/web/.next"]
+}

@@ -1,0 +1,29 @@
+# Non-secret runtime configuration shared by api, worker and the migrate Job.
+# Override per environment in an overlay (see overlays/production).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auditsphere-config
+data:
+  NODE_ENV: production
+  API_PORT: "4000"
+  API_BASE_URL: https://auditsphere.example.com
+  WEB_BASE_URL: https://auditsphere.example.com
+  CORS_ORIGINS: https://auditsphere.example.com
+  JWT_ACCESS_TTL: 15m
+  JWT_REFRESH_TTL: 30d
+  COOKIE_SECURE: "true"
+  ENTRA_REDIRECT_URI: https://auditsphere.example.com/api/v1/auth/entra/callback
+  S3_ENDPOINT: https://s3.eu-west-1.amazonaws.com
+  S3_REGION: eu-west-1
+  S3_BUCKET: auditsphere-documents
+  S3_FORCE_PATH_STYLE: "false"
+  AI_BASE_URL: https://api.openai.com/v1
+  AI_MODEL: gpt-4o
+  AI_ENABLED: "false"
+  SMTP_HOST: smtp.office365.com
+  SMTP_PORT: "587"
+  SMTP_FROM: BDO AuditSphere <no-reply@auditsphere.example.com>
+  # Web
+  NEXT_PUBLIC_API_URL: /api/v1
+  API_INTERNAL_URL: http://auditsphere-api:4000
