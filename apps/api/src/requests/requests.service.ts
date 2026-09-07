@@ -26,11 +26,20 @@ export function nextRequestReference(latest: string | null | undefined): string 
   return `DR-${pad(seq, 2)}`;
 }
 
-export function buildRequestWhere(query: RequestListQueryDto, userId: string, now = new Date()): Prisma.DocumentRequestWhereInput {
+/** `mine=true` matches by assignee id, and by assignee email when the actor's email is known. */
+export type ListActor = string | { id: string; email?: string | null };
+
+export function buildRequestWhere(query: RequestListQueryDto, actor: ListActor, now = new Date()): Prisma.DocumentRequestWhereInput {
   const where: Prisma.DocumentRequestWhereInput = {};
+  const me = typeof actor === 'string' ? { id: actor } : actor;
   if (query.engagementId) where.engagementId = query.engagementId;
   if (query.status) where.status = query.status;
-  if (query.mine) where.assigneeId = userId;
+  if (query.mine) {
+    // Auditors may type an address instead of picking the account, so a provisioned
+    // business owner also sees requests addressed to their email.
+    if (me.email) where.AND = [{ OR: [{ assigneeId: me.id }, { assigneeEmail: { equals: me.email, mode: 'insensitive' } }] }];
+    else where.assigneeId = me.id;
+  }
   if (query.overdue) {
     where.dueDate = { lt: now };
     where.status = query.status ?? { in: ['OPEN', 'RETURNED'] };
@@ -58,7 +67,7 @@ export class RequestsService {
 
   async list(query: RequestListQueryDto, user: AuthUser) {
     const db = this.prisma.scoped();
-    const where = buildRequestWhere(query, user.id);
+    const where = buildRequestWhere(query, user);
     const orderBy = parseSort(query.sort, ['dueDate', 'reference', 'title', 'status', 'createdAt'] as const, { dueDate: 'asc' });
     const page = await paginate(
       query,

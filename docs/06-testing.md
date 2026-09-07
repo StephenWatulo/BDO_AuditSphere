@@ -63,7 +63,10 @@ a fresh environment.
 6. `GET /api/v1/engagements/<IA-2026-001>/workpapers` returns six workpapers covering every
    `WorkpaperStatus`; B.3.1 has one OPEN and one ADDRESSED review note.
 7. As `owner@client.example`, `GET /api/v1/requests?mine=true` shows DR-001 ACCEPTED, DR-002
-   SUBMITTED, DR-003 OPEN (due in 5 days).
+   SUBMITTED, DR-003 OPEN (due in 5 days), and `GET /api/v1/findings?mine=true` shows F-02
+   MANAGEMENT_REVIEW and F-03 AGREED. Signing in as this user in the browser lands on the
+   client portal at `/portal` with the same items; `node scripts/verify-portal.mjs` checks this
+   end to end (see [docs/client-portal.md](client-portal.md)).
 8. `GET /api/v1/universe/coverage` reports 19 entities with 3 never audited (Retail Banking
    Tanzania, ERP, Savanna Cloud Hosting).
 9. `GET /api/v1/risks/heatmap` has cells in HIGH/CRITICAL for R-009, R-010, R-017, R-020.

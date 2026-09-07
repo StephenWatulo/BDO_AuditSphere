@@ -25,16 +25,29 @@ const LIST_INCLUDE = {
   _count: { select: { recommendations: true, evidence: true } },
 } satisfies Prisma.FindingInclude;
 
+/** `mine=true` matches by action owner id, and by action owner email when the actor's email is known. */
+export type ListActor = string | { id: string; email?: string | null };
+
 /** Pure where-clause builder for GET /findings (unit tested). */
-export function buildFindingsWhere(query: FindingListQueryDto, userId: string, now = new Date()): Prisma.FindingWhereInput {
+export function buildFindingsWhere(query: FindingListQueryDto, actor: ListActor, now = new Date()): Prisma.FindingWhereInput {
   const where: Prisma.FindingWhereInput = { deletedAt: null };
+  const me = typeof actor === 'string' ? { id: actor } : actor;
   if (query.engagementId) where.engagementId = query.engagementId;
   if (query.entityId) where.entityId = query.entityId;
   if (query.status) where.status = query.status;
   if (query.severity) where.severity = query.severity;
   if (query.actionOwnerId) where.actionOwnerId = query.actionOwnerId;
   if (query.isRepeat !== undefined) where.isRepeat = query.isRepeat;
-  if (query.mine) where.actionOwnerId = userId;
+  if (query.mine) {
+    // A finding may name the action owner by email before they are picked as a platform
+    // user, so a provisioned business owner also sees findings addressed to their email.
+    if (me.email) {
+      delete where.actionOwnerId;
+      where.AND = [{ OR: [{ actionOwnerId: me.id }, { actionOwnerEmail: { equals: me.email, mode: 'insensitive' } }] }];
+    } else {
+      where.actionOwnerId = me.id;
+    }
+  }
   if (query.overdue) {
     where.dueDate = { lt: now };
     where.status = query.status ? query.status : { in: ACTIONABLE_STATUSES };
@@ -122,7 +135,7 @@ export class FindingsService {
   async list(query: FindingListQueryDto, user: AuthUser) {
     const db = this.prisma.scoped();
     const now = new Date();
-    const where = buildFindingsWhere(query, user.id, now);
+    const where = buildFindingsWhere(query, user, now);
     const orderBy = parseSort(query.sort, ['reference', 'title', 'severity', 'status', 'dueDate', 'createdAt', 'agreedAt', 'closedAt'] as const, { createdAt: 'desc' });
     const page = await paginate(
       query,

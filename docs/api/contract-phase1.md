@@ -156,7 +156,8 @@ against; the OpenAPI output must match it.
 ## Findings (`finding:*`)
 
 - `GET /findings` filters `engagementId`, `entityId`, `status`, `severity`, `actionOwnerId`,
-  `overdue=true`, `mine=true`. Items include `engagement { id, auditNumber, title }`,
+  `overdue=true`, `mine=true` (action owner = me, matched by user id or, case-insensitively,
+  by `actionOwnerEmail`). Items include `engagement { id, auditNumber, title }`,
   `entity { id, name }`, `actionOwner`, `ageingBucket`, `daysOverdue`.
 - `POST /findings` `{ engagementId, title, severity, condition, criteria, cause?, impact?,
   recommendation?, workpaperId?, riskId?, controlId?, processId?, entityId?,
@@ -173,7 +174,8 @@ against; the OpenAPI output must match it.
 
 ## Document requests (`request:*`)
 
-- `GET /requests` filters `engagementId`, `status`, `mine=true` (assignee = me).
+- `GET /requests` filters `engagementId`, `status`, `mine=true` (assignee = me, matched by user
+  id or, case-insensitively, by `assigneeEmail`), `overdue=true`.
 - `POST /requests` `{ engagementId, title, description?, assigneeId?, assigneeEmail?, dueDate }`.
 - `GET /requests/:id` with documents and `availableActions`. `PATCH /requests/:id`.
 - `POST /requests/:id/transition` `{ action, comment? }` using `REQUEST_WORKFLOW`. Guard

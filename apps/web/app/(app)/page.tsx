@@ -2,13 +2,14 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Briefcase, ClipboardCheck, Inbox, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/shell/page-header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SkeletonCard } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Can, hasPermission, primaryDashboard, useCurrentUser } from '@/lib/auth';
+import { Can, hasPermission, isPortalOnlyUser, primaryDashboard, useCurrentUser } from '@/lib/auth';
 import { AuditorDashboard } from '@/components/dashboards/auditor-dashboard';
 import { PartnerDashboard } from '@/components/dashboards/partner-dashboard';
 import { CommitteeDashboard } from '@/components/dashboards/committee-dashboard';
@@ -16,12 +17,19 @@ import { CommitteeDashboard } from '@/components/dashboards/committee-dashboard'
 type View = 'auditor' | 'partner' | 'committee';
 
 export default function HomePage() {
+  const router = useRouter();
   const { user: currentUser, isLoading: userLoading } = useCurrentUser();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const user = mounted ? currentUser : null;
   const isLoading = !mounted || userLoading;
   const [view, setView] = React.useState<View | null>(null);
+
+  // Business owners have no audit dashboard; their home is the client portal.
+  const portalOnly = isPortalOnlyUser(user);
+  React.useEffect(() => {
+    if (portalOnly) router.replace('/portal');
+  }, [portalOnly, router]);
 
   const available = React.useMemo(() => {
     const v: { key: View; label: string }[] = [];
@@ -35,6 +43,8 @@ export default function HomePage() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = user?.firstName || user?.displayName?.split(' ')[0] || '';
+
+  if (portalOnly) return <SkeletonCard />;
 
   return (
     <>

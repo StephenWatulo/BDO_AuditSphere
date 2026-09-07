@@ -88,3 +88,34 @@ export function primaryDashboard(user: User | null): 'auditor' | 'partner' | 'co
   if (hasPermission(user, 'dashboard:committee')) return 'committee';
   return null;
 }
+
+/** Permissions that only make sense inside the full audit workspace. */
+const WORKSPACE_PERMISSIONS: PermissionKey[] = [
+  'dashboard:auditor',
+  'dashboard:partner',
+  'dashboard:committee',
+  'universe:read',
+  'risk:read',
+  'control:read',
+  'plan:read',
+  'report:export',
+];
+
+/** Business-side users who respond to document requests or provide management responses. */
+export function canUsePortal(user: User | null | undefined): boolean {
+  return hasPermission(user, ['request:respond', 'finding:respond']);
+}
+
+export function hasWorkspaceAccess(user: User | null | undefined): boolean {
+  return hasPermission(user, WORKSPACE_PERMISSIONS);
+}
+
+/** True for users whose only work in the platform is responding through the client portal. */
+export function isPortalOnlyUser(user: User | null | undefined): boolean {
+  return canUsePortal(user) && !hasWorkspaceAccess(user);
+}
+
+/** Where a signed-in user lands when no return path was requested. */
+export function homePathFor(user: User | null | undefined): string {
+  return isPortalOnlyUser(user) ? '/portal' : '/';
+}

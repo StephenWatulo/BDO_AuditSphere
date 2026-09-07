@@ -5,6 +5,7 @@ import {
   BookOpen,
   Bot,
   Briefcase,
+  Building2,
   CalendarRange,
   ClipboardCheck,
   FileSearch,
@@ -35,7 +36,10 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    items: [{ label: 'Home', href: '/', icon: Home }],
+    items: [
+      { label: 'Home', href: '/', icon: Home },
+      { label: 'Client portal', href: '/portal', icon: Building2, permission: ['request:respond', 'finding:respond'], prefix: true },
+    ],
   },
   {
     label: 'Universe',

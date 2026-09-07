@@ -167,6 +167,75 @@ describeIf('AuditSphere API (e2e)', () => {
     expect(trail.body.items.map((r: { action: string }) => r.action)).toEqual(expect.arrayContaining(['finding.created', 'finding.status_changed']));
   });
 
+  // -------------------------------------------------------------------------
+  // Client portal: a provisioned business owner responds to requests and findings
+  // -------------------------------------------------------------------------
+
+  const OWNER = { email: 'owner@client.example', password: 'Admin123!' };
+  let owner: ReturnType<typeof request.agent>;
+  let ownerId: string;
+  let requestId: string;
+  const nextWeek = new Date(Date.now() + 7 * 86_400_000).toISOString();
+
+  it('business owner sees only their own requests and findings through mine=true', async () => {
+    owner = request.agent(app.getHttpServer());
+    const login = await owner.post('/api/v1/auth/login').send(OWNER).expect(200);
+    ownerId = login.body.user.id;
+    expect(login.body.user.permissions).toEqual(expect.arrayContaining(['request:respond', 'finding:respond']));
+    expect(login.body.user.permissions).not.toContain('request:manage');
+
+    const created = await agent
+      .post('/api/v1/requests')
+      .send({ engagementId, title: `E2E portal request ${stamp}`, assigneeId: ownerId, dueDate: nextWeek })
+      .expect(201);
+    requestId = created.body.id;
+    expect(created.body.reference).toMatch(/^DR-\d{2,}$/);
+
+    const mine = await owner.get('/api/v1/requests?mine=true&pageSize=200').expect(200);
+    expect(mine.body.items.some((r: { id: string }) => r.id === requestId)).toBe(true);
+    for (const r of mine.body.items as { assigneeId: string | null; assigneeEmail: string | null }[]) {
+      expect(r.assigneeId === ownerId || r.assigneeEmail?.toLowerCase() === OWNER.email).toBe(true);
+    }
+
+    await agent.patch(`/api/v1/findings/${findingId}`).send({ actionOwnerId: ownerId }).expect(200);
+    const findings = await owner.get('/api/v1/findings?mine=true&pageSize=200').expect(200);
+    expect(findings.body.items.some((f: { id: string }) => f.id === findingId)).toBe(true);
+  });
+
+  it('business owner may only edit the response note, then submits the request', async () => {
+    const blocked = await owner.post(`/api/v1/requests/${requestId}/transition`).send({ action: 'submit' }).expect(422);
+    expect(blocked.body.guards[0].guard).toBe('has_attachment_or_response');
+
+    await owner.patch(`/api/v1/requests/${requestId}`).send({ title: 'Renamed by the business' }).expect(403);
+    const noted = await owner.patch(`/api/v1/requests/${requestId}`).send({ responseNote: 'Attached the signed matrix.' }).expect(200);
+    expect(noted.body.responseNote).toBe('Attached the signed matrix.');
+
+    const submitted = await owner.post(`/api/v1/requests/${requestId}/transition`).send({ action: 'submit' }).expect(201);
+    expect(submitted.body.status).toBe('SUBMITTED');
+    expect(submitted.body.submittedAt).toBeTruthy();
+    // Only the audit team can accept.
+    expect(submitted.body.availableActions.filter((a: { allowed?: boolean }) => a.allowed !== false)).toHaveLength(0);
+  });
+
+  it('business owner provides the management response and agrees the finding', async () => {
+    await owner.patch(`/api/v1/findings/${findingId}`).send({ condition: 'Tampered' }).expect(403);
+    const responded = await owner
+      .patch(`/api/v1/findings/${findingId}`)
+      .send({ managementResponse: 'Agreed. Workflow approval will be enforced from next month.', dueDate: nextWeek })
+      .expect(200);
+    expect(responded.body.managementResponse).toContain('Agreed');
+
+    const agreed = await owner.post(`/api/v1/findings/${findingId}/transition`).send({ action: 'agree' }).expect(201);
+    expect(agreed.body.status).toBe('AGREED');
+    expect(agreed.body.agreedAt).toBeTruthy();
+
+    const started = await owner.post(`/api/v1/findings/${findingId}/transition`).send({ action: 'start_implementation' }).expect(201);
+    expect(started.body.status).toBe('IMPLEMENTATION');
+
+    const needsEvidence = await owner.post(`/api/v1/findings/${findingId}/transition`).send({ action: 'request_validation' }).expect(422);
+    expect(needsEvidence.body.guards.map((g: { guard: string }) => g.guard)).toContain('has_implementation_evidence');
+  });
+
   it('refreshes the session and logs out', async () => {
     await agent.post('/api/v1/auth/refresh').expect(200);
     await agent.post('/api/v1/auth/logout').expect(204);

@@ -18,6 +18,12 @@ describe('buildFindingsWhere', () => {
     expect(buildFindingsWhere({ mine: true, actionOwnerId: 'someone-else' }, ME, NOW).actionOwnerId).toBe(ME);
   });
 
+  it('mine=true also matches findings addressed to my email when the actor email is known', () => {
+    const where = buildFindingsWhere({ mine: true, actionOwnerId: 'someone-else' }, { id: ME, email: 'Owner@Client.example' }, NOW);
+    expect(where.actionOwnerId).toBeUndefined();
+    expect(where.AND).toEqual([{ OR: [{ actionOwnerId: ME }, { actionOwnerEmail: { equals: 'Owner@Client.example', mode: 'insensitive' } }] }]);
+  });
+
   it('overdue=true means past due and in an actionable status', () => {
     const where = buildFindingsWhere({ overdue: true }, ME, NOW);
     expect(where.dueDate).toEqual({ lt: NOW });

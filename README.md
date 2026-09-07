@@ -1,6 +1,7 @@
 # BDO AuditSphere
 
 Report downloads and document upload workflows: [Reports and documents](docs/report-downloads.md).
+Business owners respond to requests and findings through the [Client portal](docs/client-portal.md) at `/portal`.
 
 Multi-tenant internal audit operating platform built by BDO East Africa: audit universe and
 risk assessment, risk-based planning, engagement lifecycle with programmes and workpapers,

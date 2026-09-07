@@ -10,7 +10,14 @@ import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications 
 import { fmtRelative } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-export function NotificationBell() {
+export function NotificationBell({
+  mapLink,
+  allHref = '/notifications',
+}: {
+  /** Rewrites a notification's deep link before navigating (the client portal maps workspace routes onto portal routes). */
+  mapLink?: (link: string) => string;
+  allHref?: string;
+} = {}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const { data } = useNotifications(true, { refetchInterval: 60_000 });
@@ -59,7 +66,7 @@ export function NotificationBell() {
                   onClick={() => {
                     if (!n.readAt) markRead.mutate(n.id);
                     setOpen(false);
-                    if (n.link) router.push(n.link);
+                    if (n.link) router.push(mapLink ? mapLink(n.link) : n.link);
                   }}
                 >
                   <span className="text-sm font-medium leading-tight">{n.title}</span>
@@ -71,7 +78,7 @@ export function NotificationBell() {
           )}
         </ul>
         <div className="border-t border-border px-3 py-2 text-center">
-          <Link href="/notifications" className="text-xs font-medium text-primary hover:underline" onClick={() => setOpen(false)}>
+          <Link href={allHref} className="text-xs font-medium text-primary hover:underline" onClick={() => setOpen(false)}>
             View all notifications
           </Link>
         </div>

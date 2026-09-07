@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
 import { api, errorMessage } from '@/lib/api';
-import { ME_QUERY_KEY } from '@/lib/auth';
+import { ME_QUERY_KEY, homePathFor } from '@/lib/auth';
 import type { LoginResponse } from '@/lib/types';
 
 const schema = z.object({
@@ -58,7 +58,7 @@ function SignInForm() {
         return;
       }
       if (res.user) qc.setQueryData(ME_QUERY_KEY, res.user);
-      router.replace(returnTo);
+      router.replace(returnTo === '/' ? homePathFor(res.user) : returnTo);
     } catch (e) {
       setServerError(errorMessage(e, 'Sign in failed'));
     }
