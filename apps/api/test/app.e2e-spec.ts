@@ -1,15 +1,36 @@
 /**
- * End-to-end scaffold. Requires a seeded Postgres (`pnpm db:migrate && pnpm db:seed`)
- * reachable through DATABASE_URL; the whole file is skipped otherwise.
+ * End-to-end suite. Requires a seeded Postgres (`pnpm db:deploy && pnpm db:seed`)
+ * reachable through DATABASE_URL. When the variable is not exported, the root
+ * `.env` is loaded the same way the API does at boot; if it is still missing the
+ * whole file is skipped with a visible warning.
  *
  * Seed contract (packages/db/prisma/seed.ts): tenant slug `bdo-ea` with
  * admin@bdo-ea.com / Admin123! holding GLOBAL_ADMIN.
  */
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { parseEnv } from 'node:util';
 import request from 'supertest';
+import { apiRoot, repoRoot } from '../src/config/repo-root';
+
+// Jest gives each test file its own copy of process.env, so process.loadEnvFile
+// would populate the wrong object. Parse and assign explicitly; values already
+// in the environment win, matching dotenv semantics.
+if (!process.env.DATABASE_URL) {
+  for (const envFile of [join(apiRoot(), '.env'), join(repoRoot(), '.env')]) {
+    if (!existsSync(envFile)) continue;
+    for (const [key, value] of Object.entries(parseEnv(readFileSync(envFile, 'utf8')))) {
+      process.env[key] ??= value;
+    }
+  }
+}
 
 const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.warn('[e2e] DATABASE_URL is not set and no .env was found; skipping the API e2e suite.');
+}
 const describeIf = DATABASE_URL ? describe : describe.skip;
 
 process.env.NODE_ENV = process.env.NODE_ENV ?? 'test';

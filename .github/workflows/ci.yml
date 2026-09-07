@@ -95,6 +95,10 @@ jobs:
       - name: Test
         run: pnpm -r run --if-present test
 
+      # HTTP end-to-end suite against the migrated and seeded Postgres service.
+      - name: API e2e
+        run: pnpm --filter @auditsphere/api test:e2e
+
       - name: Build
         run: pnpm -r build
 

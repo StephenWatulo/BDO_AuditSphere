@@ -16,7 +16,7 @@
 pnpm -r test                          # every package with a test script
 pnpm --filter @auditsphere/shared test
 pnpm --filter @auditsphere/api test
-pnpm --filter @auditsphere/api test:e2e    # requires DATABASE_URL, migrations and seed
+pnpm --filter @auditsphere/api test:e2e    # requires a migrated and seeded database (see below)
 pnpm -r typecheck && pnpm -r run --if-present lint
 ```
 
@@ -31,13 +31,19 @@ pnpm db:deploy && pnpm db:seed
 pnpm --filter @auditsphere/api test:e2e
 ```
 
+The suite reads `DATABASE_URL` from the environment. When it is not exported it loads
+`apps/api/.env` and then the repository root `.env`, exactly as the API does at boot. If no
+database URL can be found the whole file is skipped and a `[e2e]` warning is printed, so a
+run that reports only skipped tests means the database was not configured.
+
 Tests must not depend on row counts from the seed (other tests may add data); they should create
 what they need under a unique reference and assert on it. Mutations should use a dedicated
 engagement created by the test.
 
 CI (`.github/workflows/ci.yml`) provisions a `postgres:16` service, runs `pnpm db:deploy`,
-`pnpm db:seed`, checks the schema is in sync with the migration history, then runs
-`pnpm -r test`.
+`pnpm db:seed`, checks the schema is in sync with the migration history, runs `pnpm -r test`,
+then runs the API e2e suite (`pnpm --filter @auditsphere/api test:e2e`) against the same
+database before building.
 
 ### Seed-based smoke tests
 

@@ -43,7 +43,6 @@ export function configureApp(app: INestApplication): void {
   const ctx = app.get(TenantContext);
   const express_ = app as NestExpressApplication;
   if (typeof express_.set === 'function') express_.set('trust proxy', 1);
-  registerOperationalProbeRoutes(app.getHttpAdapter().getInstance() as Express, app.get(PrismaService), app.get(StorageService));
 
   app.use(requestContextMiddleware(ctx));
   app.use(
@@ -59,6 +58,10 @@ export function configureApp(app: INestApplication): void {
     allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'X-Download-Mode'],
     exposedHeaders: ['x-request-id', 'Content-Disposition', 'X-Download-Disposition'],
   });
+  // Probes are registered after the request-context and security middleware so
+  // they carry x-request-id and the helmet headers, but before cookies, body
+  // parsing and the /api/v1 prefix so they stay cheap and unauthenticated.
+  registerOperationalProbeRoutes(app.getHttpAdapter().getInstance() as Express, app.get(PrismaService), app.get(StorageService));
   app.use(cookieParser());
   // Raw body for local-driver uploads (PUT /documents/:id/content). Registered
   // before the JSON parser so it owns the body for that route only.
