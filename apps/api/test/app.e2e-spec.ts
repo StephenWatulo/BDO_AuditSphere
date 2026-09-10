@@ -258,7 +258,7 @@ describe('AuditSphere API (e2e)', () => {
   });
 
   it.each([
-    'Show me all procurement-related findings identified across completed audits.',
+    'Show me all procurement-related findings identified across audits.',
     'Which risks have linked findings?',
     'Show me all open audit actions with owners and due dates.',
     'Which controls have recurring weaknesses?',
