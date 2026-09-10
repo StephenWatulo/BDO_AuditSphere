@@ -22,6 +22,8 @@ export function testEnvironment(env: NodeJS.ProcessEnv, storageRoot: string): No
     JWT_REFRESH_SECRET: 'e2e-only-refresh-secret-at-least-32-characters',
     ENCRYPTION_KEY: '0123456789abcdef'.repeat(4),
     COOKIE_SECURE: 'false',
+    // Workflow E2E tests exercise application features; MFA has dedicated tests.
+    MFA_ENFORCEMENT: 'off',
     STORAGE_DRIVER: 'local',
     LOCAL_STORAGE_DIR: join(storageRoot, database),
     RUN_JOBS: 'false',
