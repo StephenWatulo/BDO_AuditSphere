@@ -38,7 +38,7 @@ try {
     const response = await ctx.request.post('/api/v1/auth/login', { data: { email, password: process.env.SMOKE_PASSWORD ?? 'Admin123!', tenantSlug: 'bdo-ea' }, timeout: 120000 });
     assert.equal(response.status(), 200, await response.text());
   }
-  await page.goto('/copilot', { timeout: 120000 });
+  await page.goto('/copilot', { waitUntil: 'domcontentloaded', timeout: 120000 });
   await page.getByRole('heading', { name: 'AI Sphere', exact: true }).waitFor();
   await page.getByRole('link', { name: 'AI Sphere', exact: true }).waitFor();
   await page.getByLabel('Upload context documents').setInputFiles(fixtures);
@@ -52,22 +52,22 @@ try {
   console.log('PASS PDF, DOCX, XLSX browser uploads, selection and preview');
 
   await page.getByLabel('Capability', { exact: true }).click();
-  await page.getByRole('option', { name: 'Evidence summary', exact: true }).click();
+  await page.getByRole('option', { name: 'Evidence Review & Exception Analysis', exact: true }).click();
   const generated = page.waitForResponse((response) => response.url().endsWith('/ai/copilot') && response.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Generate', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate review', exact: true }).click();
   const response = await generated;
   assert.equal(response.status(), 201, await response.text());
   const result = await response.json();
   assert.equal(result.sources.length, 3);
   assert.deepEqual([...response.request().postDataJSON().documentIds].sort(), documents.map((doc) => doc.id).sort());
-  await page.getByRole('heading', { name: 'Context sources', exact: true }).waitFor();
+  await page.getByRole('tab', { name: /^Sources/ }).waitFor();
   if (result.provider !== 'openai-compatible') {
-    assert.ok(result.narrative.includes(marker));
+    assert.ok(JSON.stringify(result.sections).includes(marker));
     assert.ok(result.caveats.some((caveat) => caveat.includes('not model-based document analysis')));
   }
   await page.getByRole('checkbox', { name: `Use ${fixtures[2].name} as context`, exact: true }).uncheck();
   const regenerated = page.waitForResponse((res) => res.url().endsWith('/ai/copilot') && res.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Generate', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate review', exact: true }).click();
   assert.equal((await (await regenerated).json()).sources.length, 2);
   console.log('PASS generation includes only selected document sources');
 

@@ -1,0 +1,18 @@
+# Keep the Docker build context small and clean. Without this file, `docker compose
+# build` sends node_modules, the local database, uploaded files and .env into the
+# build context, which is slow, can leak secrets into images, and can overwrite the
+# image's own node_modules with host symlinks.
+.git
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
+.local-postgres
+.local-storage
+.local-dev
+.turbo
+.env
+.env.*
+*.log

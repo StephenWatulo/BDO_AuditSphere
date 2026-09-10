@@ -13,7 +13,9 @@ describe('crypto', () => {
     const enc = encrypt('JBSWY3DPEHPK3PXP', key);
     expect(enc.startsWith('v1:')).toBe(true);
     expect(decrypt(enc, key)).toBe('JBSWY3DPEHPK3PXP');
-    const tampered = `v1:${Buffer.from(enc.slice(3), 'base64').fill(0, 30, 31).toString('base64')}`;
+    const bytes = Buffer.from(enc.slice(3), 'base64');
+    bytes[30] ^= 1;
+    const tampered = `v1:${bytes.toString('base64')}`;
     expect(() => decrypt(tampered, key)).toThrow();
     expect(() => decrypt(enc, deriveKey('b'.repeat(64)))).toThrow();
   });

@@ -18,7 +18,7 @@ import { useCreateEngagement } from '@/lib/queries/engagements';
 import { ENGAGEMENT_TYPE_LABELS, enumOptions } from '@/lib/labels';
 import { humanize } from '@/lib/utils';
 
-const TYPES = ['OPERATIONAL', 'FINANCIAL', 'COMPLIANCE', 'IT', 'INVESTIGATION', 'ADVISORY', 'FOLLOW_UP', 'INTEGRATED'] as const;
+const TYPES = ['INTERNAL_AUDIT', 'OPERATIONAL', 'FINANCIAL', 'COMPLIANCE', 'IT', 'INVESTIGATION', 'ADVISORY', 'FOLLOW_UP', 'INTEGRATED'] as const;
 
 const schema = z
   .object({

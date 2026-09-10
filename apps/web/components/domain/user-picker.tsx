@@ -1,15 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { Check, ChevronsUpDown, X } from 'lucide-react';
+import { Check, ChevronsUpDown, RefreshCw, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { UserAvatar } from '@/components/ui/avatar';
-import { useUsers } from '@/lib/queries/users';
+import { Button } from '@/components/ui/button';
+import { useUserOptions } from '@/lib/queries/users';
+import { errorMessage } from '@/lib/api';
 import type { UserRef } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-/** Searchable user selector backed by GET /users. */
+/** Searchable, tenant-scoped assignment directory. */
 export function UserPicker({
   value,
   onChange,
@@ -35,8 +37,8 @@ export function UserPicker({
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState('');
   const listId = React.useId();
-  const { data, isLoading } = useUsers({ q, role, status: 'ACTIVE', pageSize: 20 }, open);
-  const items = data?.items ?? [];
+  const { data, isLoading, error, refetch } = useUserOptions({ q, role, pageSize: 20 }, open);
+  const items = error ? [] : data?.items ?? [];
   const selected = items.find((u) => u.id === value) ?? (initial && initial.id === value ? initial : undefined);
 
   return (
@@ -83,11 +85,15 @@ export function UserPicker({
           </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-64 p-0" align="start">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-64 max-w-[calc(100vw-2rem)] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput placeholder="Search people…" value={q} onValueChange={setQ} />
           <CommandList id={listId}>
-            <CommandEmpty>{isLoading ? 'Searching…' : 'No people found.'}</CommandEmpty>
+            {error ? <div role="alert" className="space-y-2 px-3 py-3 text-sm">
+              <p className="font-medium">Could not load people.</p>
+              <p className="break-words text-xs text-muted-foreground">{errorMessage(error)}</p>
+              <Button type="button" size="sm" variant="outline" onClick={() => void refetch()}><RefreshCw /> Retry</Button>
+            </div> : <CommandEmpty>{isLoading ? 'Searching...' : 'No active users found.'}</CommandEmpty>}
             <CommandGroup>
               {items.map((u) => (
                 <CommandItem

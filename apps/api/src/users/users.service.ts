@@ -9,7 +9,7 @@ import { paginate, parseSort } from '../common/pagination';
 import { compact } from '../common/utils';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContext } from '../tenancy/tenant-context';
-import { CreateUserDto, SetRolesDto, UpdateUserDto, UserListQueryDto } from './users.dto';
+import { CreateUserDto, SetRolesDto, UpdateUserDto, UserListQueryDto, UserOptionsQueryDto } from './users.dto';
 
 const USER_SELECT = {
   id: true,
@@ -66,6 +66,20 @@ export class UsersService {
       (p) => db.user.findMany({ where, orderBy, select: USER_SELECT, ...p }),
     );
     return { ...page, items: page.items.map(shape) };
+  }
+
+  async options(query: UserOptionsQueryDto) {
+    const db = this.prisma.scoped();
+    const where: Prisma.UserWhereInput = {
+      deletedAt: null,
+      status: 'ACTIVE',
+      ...(query.role ? { roles: { some: { role: { key: query.role } } } } : {}),
+      ...(query.q ? { OR: [{ email: { contains: query.q, mode: 'insensitive' } }, { displayName: { contains: query.q, mode: 'insensitive' } }] } : {}),
+    };
+    return paginate(query, () => db.user.count({ where }), (p) => db.user.findMany({
+      where, ...p, orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+      select: { id: true, displayName: true, email: true, avatarUrl: true, jobTitle: true },
+    }));
   }
 
   async get(id: string) {

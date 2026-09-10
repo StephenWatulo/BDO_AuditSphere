@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import type { AuditSearchOptions } from '@auditsphere/shared';
 import { api } from '@/lib/api';
 import type { AiContextDocument, AiCopilotResponse, AiFeature, AiInteraction, ListParams, Paged } from '@/lib/types';
 import { compactParams, useApiMutation } from './helpers';
@@ -11,13 +12,29 @@ export const aiKeys = {
   interactions: (params: Record<string, unknown>) => ['ai', 'interactions', params] as const,
 };
 
-export interface CopilotInput {
+export interface CopilotInput extends AuditSearchOptions {
   feature: AiFeature;
   prompt: string;
   targetType?: string;
   targetId?: string;
   context?: string;
   documentIds?: string[];
+  impact?: number;
+  likelihood?: number;
+  ratingRationale?: string;
+  populationSize?: number;
+}
+
+export function useAiStatus() {
+  return useQuery({ queryKey: ['ai', 'status'], queryFn: () => api.get<{ provider: string; model: string; version: string; intelligenceSearch?: boolean }>('/ai/status') });
+}
+
+export function useAiTargets(type: string, q: string) {
+  return useQuery({ queryKey: ['ai', 'targets', type, q], queryFn: () => api.get<{ items: { id: string; label: string }[] }>('/ai/targets', { type, q }), enabled: !!type });
+}
+
+export function useAiInteraction(id: string | null) {
+  return useQuery({ queryKey: ['ai', 'interaction', id], queryFn: () => api.get<AiCopilotResponse>(`/ai/interactions/${id}`), enabled: !!id });
 }
 
 export function useAiContextDocuments(enabled: boolean) {

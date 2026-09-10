@@ -22,6 +22,7 @@ import { EngagementsModule } from './engagements/engagements.module';
 import { EvidenceModule } from './evidence/evidence.module';
 import { FindingsModule } from './findings/findings.module';
 import { HealthModule } from './health/health.module';
+import { HelpModule } from './help/help.module';
 import { JobsModule, jobsEnabled } from './jobs/jobs.module';
 import { LibraryModule } from './library/library.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -66,6 +67,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
     StorageModule,
     AuthModule,
     HealthModule,
+    HelpModule,
     // Domain
     UsersModule,
     AiModule,

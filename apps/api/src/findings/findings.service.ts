@@ -105,10 +105,14 @@ export class FindingsService {
       ok: !isBlank(entity.managementResponse),
       message: 'A management response is required',
     }));
-    registry.register<Finding>(m, 'has_action_owner_and_due_date', ({ entity }: FGuardCtx) => ({
-      ok: Boolean(entity.actionOwnerId || !isBlank(entity.actionOwnerName) || !isBlank(entity.actionOwnerEmail)) && Boolean(entity.dueDate),
-      message: 'An action owner and a due date are required',
-    }));
+    registry.register<Finding>(m, 'has_action_owner_and_due_date', ({ entity }: FGuardCtx) => {
+      const hasOwner = Boolean(entity.actionOwnerId || !isBlank(entity.actionOwnerName) || !isBlank(entity.actionOwnerEmail));
+      const hasDueDate = Boolean(entity.dueDate);
+      return {
+        ok: hasOwner && hasDueDate,
+        message: !hasOwner && !hasDueDate ? 'An action owner and a due date are required' : !hasOwner ? 'An action owner is required. Select a platform user or enter an external owner.' : !hasDueDate ? 'A due date is required. The recorded action owner is already sufficient.' : 'Action owner and due date are recorded.',
+      };
+    });
     registry.register<Finding>(m, 'has_implementation_evidence', async ({ entity }: FGuardCtx) => {
       const db = this.prisma.scoped();
       const [evidence, documents, implemented] = await Promise.all([
@@ -185,6 +189,7 @@ export class FindingsService {
     const engagement = await db.engagement.findFirst({ where: { id: dto.engagementId, deletedAt: null } });
     if (!engagement) throw new NotFoundException('Engagement not found');
     if (engagement.stage === 'CLOSED') throw new ConflictException('Closed engagements cannot receive new findings');
+    if (dto.actionOwnerId) await this.assertActionOwner(dto.actionOwnerId);
     if (dto.workpaperId) {
       const wp = await db.workpaper.findFirst({ where: { id: dto.workpaperId, engagementId: dto.engagementId, deletedAt: null } });
       if (!wp) throw new BadRequestException('Workpaper not found on this engagement');
@@ -250,6 +255,7 @@ export class FindingsService {
       }
     }
     if (before.status === 'CLOSED' || before.status === 'RISK_ACCEPTED') throw new ConflictException('Closed findings cannot be edited');
+    if (dto.actionOwnerId) await this.assertActionOwner(dto.actionOwnerId);
     if (dto.evidenceIds) {
       const count = await db.evidence.count({ where: { id: { in: dto.evidenceIds }, engagementId: before.engagementId } });
       if (count !== new Set(dto.evidenceIds).size) throw new BadRequestException('One or more evidence records were not found on this engagement');
@@ -294,6 +300,11 @@ export class FindingsService {
       });
     }
     return withAgeing(after);
+  }
+
+  private async assertActionOwner(id: string) {
+    const owner = await this.prisma.scoped().user.findFirst({ where: { id, status: 'ACTIVE', deletedAt: null }, select: { id: true } });
+    if (!owner) throw new BadRequestException('Action owner must be an active user in this organisation.');
   }
 
   async transition(id: string, dto: TransitionDto, user: AuthUser) {

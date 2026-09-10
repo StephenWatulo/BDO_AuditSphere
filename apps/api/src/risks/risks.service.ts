@@ -124,7 +124,7 @@ export class RisksService {
       },
     });
     if (!risk) throw new NotFoundException('Risk not found');
-    return risk;
+    return { ...risk, controls: risk.controls.map((link) => link.control) };
   }
 
   async create(dto: CreateRiskDto) {

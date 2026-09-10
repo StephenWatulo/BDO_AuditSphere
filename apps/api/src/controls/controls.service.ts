@@ -14,6 +14,11 @@ const CONTROL_INCLUDE = {
   _count: { select: { tests: true, findings: true } },
 } satisfies Prisma.ControlInclude;
 
+// Expose risk summaries, not the risk-control join rows, in the public contract.
+function controlResponse<T extends Pick<Prisma.ControlGetPayload<{ include: typeof CONTROL_INCLUDE }>, 'risks'>>(control: T) {
+  return { ...control, risks: control.risks.map((link) => link.risk) };
+}
+
 /** Maps a test outcome onto the control-level effectiveness field. */
 export function effectivenessFor(result: ControlTestResult): ControlEffectiveness | null {
   switch (result) {
@@ -49,11 +54,12 @@ export class ControlsService {
       ...(query.q ? { OR: [{ title: { contains: query.q, mode: 'insensitive' } }, { code: { contains: query.q, mode: 'insensitive' } }] } : {}),
     };
     const orderBy = parseSort(query.sort, ['code', 'title', 'effectiveness', 'frequency', 'lastTestedAt', 'createdAt'] as const, { code: 'asc' });
-    return paginate(
+    const result = await paginate(
       query,
       () => db.control.count({ where }),
       (p) => db.control.findMany({ where, orderBy, ...p, include: CONTROL_INCLUDE }),
     );
+    return { ...result, items: result.items.map(controlResponse) };
   }
 
   async get(id: string) {
@@ -65,7 +71,7 @@ export class ControlsService {
       },
     });
     if (!control) throw new NotFoundException('Control not found');
-    return control;
+    return controlResponse(control);
   }
 
   async create(dto: CreateControlDto) {
@@ -89,7 +95,7 @@ export class ControlsService {
       include: CONTROL_INCLUDE,
     });
     await this.audit.record({ action: 'control.created', targetType: 'Control', targetId: created.id, after: created });
-    return created;
+    return controlResponse(created);
   }
 
   async update(id: string, dto: UpdateControlDto) {
@@ -114,9 +120,9 @@ export class ControlsService {
       }),
       include: CONTROL_INCLUDE,
     });
-    if (dto.riskIds) await this.setRisks(id, { riskIds: dto.riskIds });
-    await this.audit.record({ action: 'control.updated', targetType: 'Control', targetId: id, before, after });
-    return after;
+    const result = dto.riskIds ? await this.setRisks(id, { riskIds: dto.riskIds }) : controlResponse(after);
+    await this.audit.record({ action: 'control.updated', targetType: 'Control', targetId: id, before, after: result });
+    return result;
   }
 
   async setRisks(id: string, dto: SetControlRisksDto) {

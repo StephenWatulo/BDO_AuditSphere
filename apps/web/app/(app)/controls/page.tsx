@@ -1,12 +1,13 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { FlaskConical, Link2, Pencil, Plus, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FlaskConical, Link2, Pencil, Plus, ShieldCheck } from 'lucide-react';
 import { PageHeader, DescriptionItem } from '@/components/shell/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,30 +85,39 @@ function ControlDialog({ open, onOpenChange, control }: { open: boolean; onOpenC
 
 function LinkRisksDialog({ control, open, onOpenChange }: { control: Control; open: boolean; onOpenChange: (o: boolean) => void }) {
   const [q, setQ] = React.useState('');
-  const risks = useRisks({ q, pageSize: 50 }, open);
+  const [page, setPage] = React.useState(1);
+  const risks = useRisks({ q, page, pageSize: 50, sort: 'code:asc' }, open);
   const setRisks = useSetControlRisks(control.id);
-  const [selected, setSelected] = React.useState<Set<string>>(new Set());
-  React.useEffect(() => { if (open) setSelected(new Set((control.risks ?? []).map((r) => r.id))); }, [open, control.risks]);
+  // The dialog mounts per opening; refetches and searches must not reset draft links.
+  const [selected, setSelected] = React.useState(() => new Set((control.risks ?? []).map((r) => r.id)));
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader><DialogTitle>Link risks to {control.code}</DialogTitle><DialogDescription>Defines the risk-control matrix for this control.</DialogDescription></DialogHeader>
         <DialogBody className="space-y-2">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search risks…" aria-label="Search risks" />
+          <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Search risks…" aria-label="Search risks" disabled={setRisks.isPending} />
+          {risks.isError ? <ErrorState compact title="Could not load risks" error={risks.error} onRetry={() => risks.refetch()} /> :
           <ul className="max-h-72 divide-y divide-border overflow-y-auto rounded-md border border-border">
-            {risks.isLoading ? <li className="p-3"><SkeletonRows rows={4} /></li> : (risks.data?.items ?? []).map((r) => (
+            {risks.isLoading ? <li className="p-3"><SkeletonRows rows={4} /></li> : !risks.data?.items.length ? <li><EmptyState compact title="No risks found" /></li> : risks.data.items.map((r) => (
               <li key={r.id} className="flex items-center gap-2 px-3 py-2">
-                <Checkbox id={`lr-${r.id}`} checked={selected.has(r.id)} onCheckedChange={(c) => setSelected((s) => { const n = new Set(s); if (c) n.add(r.id); else n.delete(r.id); return n; })} />
-                <Label htmlFor={`lr-${r.id}`} className="flex-1 truncate font-normal"><span className="font-mono text-2xs text-muted-foreground">{r.code}</span> {r.title}</Label>
+                <Checkbox id={`lr-${r.id}`} disabled={setRisks.isPending} checked={selected.has(r.id)} onCheckedChange={(c) => setSelected((s) => { const n = new Set(s); if (c) n.add(r.id); else n.delete(r.id); return n; })} />
+                <Label htmlFor={`lr-${r.id}`} className="min-w-0 flex-1 break-words font-normal"><span className="font-mono text-2xs text-muted-foreground">{r.code}</span> {r.title}</Label>
                 <SeverityBadge severity={r.rating} />
               </li>
             ))}
-          </ul>
-          <p className="text-xs text-muted-foreground">{selected.size} selected</p>
+          </ul>}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">{selected.size} selected</p>
+            {(risks.data?.total ?? 0) > 50 ? <div className="flex items-center gap-2">
+              <Button size="icon-sm" variant="ghost" aria-label="Previous page of risks" title="Previous page of risks" disabled={page === 1 || risks.isFetching || setRisks.isPending} onClick={() => setPage((p) => p - 1)}><ChevronLeft /></Button>
+              <span className="text-xs tabular-nums">{page} / {Math.ceil((risks.data?.total ?? 0) / 50)}</span>
+              <Button size="icon-sm" variant="ghost" aria-label="Next page of risks" title="Next page of risks" disabled={page * 50 >= (risks.data?.total ?? 0) || risks.isFetching || setRisks.isPending} onClick={() => setPage((p) => p + 1)}><ChevronRight /></Button>
+            </div> : null}
+          </div>
         </DialogBody>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button loading={setRisks.isPending} onClick={async () => { await setRisks.mutateAsync({ riskIds: Array.from(selected) }); onOpenChange(false); }}>Save links</Button>
+          <Button loading={setRisks.isPending} disabled={risks.isLoading || risks.isError} onClick={() => setRisks.mutate({ riskIds: Array.from(selected) }, { onSuccess: () => onOpenChange(false) })}>Save links</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -172,15 +182,15 @@ function ControlPanel({ id, onClose, onEdit }: { id: string; onClose: () => void
                 <DescriptionItem label="Description" className="col-span-2"><span className="whitespace-pre-wrap">{data.description || '—'}</span></DescriptionItem>
               </dl>
               <div>
-                <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Mitigated risks</p>
-                {data.risks?.length ? <ul className="divide-y divide-border rounded-md border border-border">{data.risks.map((r) => <li key={r.id} className="flex items-center justify-between px-3 py-1.5 text-sm"><span><span className="font-mono text-2xs text-muted-foreground">{r.code}</span> {r.title}</span><SeverityBadge severity={r.rating} /></li>)}</ul> : <EmptyState compact title="No risks linked" />}
+                <h3 className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Linked risks ({data.risks?.length ?? 0})</h3>
+                {data.risks?.length ? <ul aria-label="Linked risks" className="divide-y divide-border rounded-md border border-border">{data.risks.map((r) => <li key={r.id} className="flex items-start justify-between gap-3 px-3 py-2 text-sm"><Can permission="risk:read" fallback={<span className="min-w-0 break-words">{r.code} {r.title}</span>}><Link href={`/risks?risk=${r.id}`} className="min-w-0 break-words text-primary hover:underline"><span className="font-mono text-2xs">{r.code}</span> {r.title}</Link></Can><SeverityBadge severity={r.rating} /></li>)}</ul> : <EmptyState compact title="No risks linked" />}
               </div>
               <div>
                 <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Test history</p>
                 {data.tests?.length ? <ul className="divide-y divide-border rounded-md border border-border">{data.tests.map((t) => <li key={t.id} className="px-3 py-2 text-sm"><div className="flex items-center justify-between"><span className="font-medium">{t.testType === 'DESIGN' ? 'Design' : 'Operating'} test</span><GenericStatusBadge value={t.result} labels={CONTROL_TEST_RESULT_LABELS} tone={t.result === 'PASS' ? 'success' : t.result === 'FAIL' ? 'danger' : 'warning'} /></div><p className="text-2xs text-muted-foreground">{fmtDate(t.testedAt ?? t.createdAt)}{t.testedBy ? ` · ${t.testedBy.displayName}` : ''}{t.sampleSize ? ` · sample ${t.sampleSize}` : ''}{t.exceptions ? ` · ${t.exceptions} exceptions` : ''}</p>{t.conclusion ? <p className="mt-1 text-xs">{t.conclusion}</p> : null}</li>)}</ul> : <EmptyState compact title="No tests recorded" />}
               </div>
             </SheetBody>
-            <LinkRisksDialog control={data} open={linkOpen} onOpenChange={setLinkOpen} />
+            {linkOpen ? <LinkRisksDialog key={data.id} control={data} open onOpenChange={setLinkOpen} /> : null}
             <TestDialog control={data} open={testOpen} onOpenChange={setTestOpen} />
           </>
         )}
@@ -194,6 +204,8 @@ const DEFAULTS = { page: 1, pageSize: 25, q: '', sort: '', type: undefined as st
 export default function ControlsPage() {
   const router = useRouter();
   const params = useSearchParams();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
   const selectedId = params.get('control');
   const { state, set, sorting, setSorting, reset } = useListParams(DEFAULTS);
   const query = useControls({ page: state.page, pageSize: state.pageSize, q: state.q, sort: state.sort, type: state.type, nature: state.nature, effectiveness: state.effectiveness });
@@ -206,6 +218,7 @@ export default function ControlsPage() {
     { accessorKey: 'nature', header: 'Nature', cell: ({ getValue }) => (getValue<string>() === 'IT_DEPENDENT_MANUAL' ? 'IT-dependent manual' : humanize(getValue<string>())) },
     { accessorKey: 'frequency', header: 'Frequency', cell: ({ getValue }) => humanize(getValue<string>()) },
     { accessorKey: 'effectiveness', header: 'Effectiveness', cell: ({ getValue }) => <EffectivenessBadge value={getValue<Control['effectiveness']>()} /> },
+    { id: 'risks', header: 'Linked risks', enableSorting: false, cell: ({ row }) => <span className="tabular-nums">{row.original.risks?.length ?? 0}</span> },
     { id: 'owner', header: 'Owner', cell: ({ row }) => row.original.owner?.displayName ?? '—' },
     { accessorKey: 'lastTestedAt', header: 'Last tested', cell: ({ getValue }) => fmtDate(getValue<string>()) },
   ], []);
@@ -219,7 +232,7 @@ export default function ControlsPage() {
 
   return (
     <>
-      <PageHeader title="Controls" description="Control library, risk-control matrix and test results." actions={<Can permission="control:manage"><Button onClick={() => setDialog({ open: true, control: null })}><Plus /> New control</Button></Can>} />
+      <PageHeader title="Controls" description="Control library, risk-control matrix and test results." actions={mounted ? <Can permission="control:manage"><Button onClick={() => setDialog({ open: true, control: null })}><Plus /> New control</Button></Can> : undefined} />
       <DataTable
         columns={columns}
         data={query.data?.items}

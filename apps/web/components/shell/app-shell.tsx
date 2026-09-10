@@ -17,6 +17,7 @@ import { UserMenu } from './user-menu';
 import { CommandPalette } from './command-palette';
 import { ShortcutsSheet } from './shortcuts-sheet';
 import { BdoLogo } from '@/components/brand/bdo-logo';
+import { UserManualDownload } from './user-manual-download';
 
 const RAIL_KEY = 'as.rail.collapsed';
 
@@ -45,6 +46,7 @@ function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: (
               <div className="mx-2 my-1 h-px bg-border" />
             ) : null}
             {items.map((item) => {
+              if (item.download === 'user-manual') return <UserManualDownload key={item.href} collapsed={collapsed} />;
               const active = isActivePath(pathname, item);
               const link = (
                 <Link

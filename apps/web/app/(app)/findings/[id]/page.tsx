@@ -81,10 +81,10 @@ function ManagementResponse({ finding }: { finding: Finding }) {
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <EditableField className="sm:col-span-2" label="Response" value={finding.managementResponse} onSave={save('managementResponse')} multiline rows={5} canEdit={canRespond} prominent placeholder="Management agrees / disagrees and the planned action" />
         <div className="min-w-0">
-          <dt className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Action owner</dt>
+          <dt className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground"><Label htmlFor="finding-action-owner" className="text-2xs">Action owner</Label></dt>
           <dd className="mt-0.5">
             {canRespond ? (
-              <UserPicker value={finding.actionOwnerId} initial={finding.actionOwner} onChange={(id, user) => void update.mutateAsync({ actionOwnerId: id, actionOwnerName: user?.displayName ?? finding.actionOwnerName ?? null, actionOwnerEmail: user?.email ?? finding.actionOwnerEmail ?? null, silent: true })} placeholder="Assign a platform user…" />
+              <UserPicker id="finding-action-owner" value={finding.actionOwnerId} initial={finding.actionOwner} disabled={update.isPending} onChange={(id, user) => update.mutate({ actionOwnerId: id, actionOwnerName: user?.displayName ?? finding.actionOwnerName ?? null, actionOwnerEmail: user?.email ?? finding.actionOwnerEmail ?? null })} placeholder="Assign a platform user..." />
             ) : finding.actionOwner ? (
               <span className="flex items-center gap-1.5 text-sm"><UserAvatar name={finding.actionOwner.displayName} src={finding.actionOwner.avatarUrl} size="xs" />{finding.actionOwner.displayName}</span>
             ) : (
@@ -92,7 +92,7 @@ function ManagementResponse({ finding }: { finding: Finding }) {
             )}
           </dd>
         </div>
-        <EditableField label="Due date" value={toInputDate(finding.dueDate)} type="date" onSave={save('dueDate')} canEdit={canRespond} render={(v) => <span className={cn(overdue && 'font-medium text-destructive')}>{fmtDate(String(v || ''))}{finding.dueDate && !TERMINAL.includes(finding.status) ? <span className="ml-1 text-2xs text-muted-foreground">({fmtDueIn(finding.dueDate)})</span> : null}</span>} />
+        <EditableField label="Due date" value={toInputDate(finding.dueDate)} type="date" onSave={save('dueDate')} canEdit={canRespond} render={(v) => v ? <span className={cn(overdue && 'font-medium text-destructive')}>{fmtDate(String(v))}{!TERMINAL.includes(finding.status) ? <span className="ml-1 text-2xs text-muted-foreground">({fmtDueIn(finding.dueDate)})</span> : null}</span> : <span className={cn(canRespond && 'font-medium text-primary')}>{canRespond ? 'Set due date' : 'Not set'}</span>} />
         <EditableField label="Owner name (external)" value={finding.actionOwnerName} onSave={save('actionOwnerName')} canEdit={canRespond} placeholder="Name if not a platform user" />
         <EditableField label="Owner email (external)" value={finding.actionOwnerEmail} onSave={save('actionOwnerEmail')} canEdit={canRespond} type="email" placeholder="name@example.com" />
         {finding.originalDueDate && finding.originalDueDate !== finding.dueDate ? <DescriptionItem label="Original due date">{fmtDate(finding.originalDueDate)} · extended {finding.extensionCount} time{finding.extensionCount === 1 ? '' : 's'}</DescriptionItem> : finding.extensionCount ? <DescriptionItem label="Extensions">{finding.extensionCount}</DescriptionItem> : null}

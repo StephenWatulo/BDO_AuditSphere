@@ -150,6 +150,7 @@ enum EngagementType {
   ADVISORY
   FOLLOW_UP
   INTEGRATED
+  INTERNAL_AUDIT
 }
 
 enum EngagementStage {

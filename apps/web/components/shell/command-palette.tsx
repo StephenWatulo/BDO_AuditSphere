@@ -80,7 +80,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const navCommands = React.useMemo(
     () =>
       NAV_GROUPS.flatMap((g) => g.items)
-        .filter((i) => can(i.permission))
+        .filter((i) => !i.download && can(i.permission))
         .map<Cmd>((i) => ({
           id: `nav-${i.href}`,
           label: `Go to ${i.label}`,

@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarRange,
   ClipboardCheck,
+  Download,
   FileSearch,
   Gauge,
   Home,
@@ -27,6 +28,7 @@ export interface NavItem {
   /** Match nested routes. */
   prefix?: boolean;
   shortcut?: string;
+  download?: 'user-manual';
 }
 
 export interface NavGroup {
@@ -73,6 +75,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Users', href: '/admin/users', icon: Users, permission: 'user:manage', prefix: true },
       { label: 'Audit trail', href: '/admin/audit-trail', icon: FileSearch, permission: 'audit_trail:read', prefix: true },
+      { label: 'User manual', href: '/help/user-manual', icon: Download, download: 'user-manual' },
     ],
   },
 ];

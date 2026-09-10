@@ -24,6 +24,10 @@ export class UserListQueryDto extends PaginationDto {
   @ApiPropertyOptional({ enum: RoleKey }) @IsOptional() @IsEnum(RoleKey) role?: RoleKey;
 }
 
+export class UserOptionsQueryDto extends PaginationDto {
+  @ApiPropertyOptional({ enum: RoleKey }) @IsOptional() @IsEnum(RoleKey) role?: RoleKey;
+}
+
 export class UserProfileDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(120) displayName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(80) firstName?: string;

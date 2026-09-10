@@ -32,6 +32,7 @@ export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
 };
 
 export const ENGAGEMENT_TYPE_LABELS: Record<EngagementType, string> = {
+  INTERNAL_AUDIT: 'Internal audit',
   OPERATIONAL: 'Operational',
   FINANCIAL: 'Financial',
   COMPLIANCE: 'Compliance',
@@ -225,7 +226,7 @@ export const GUARD_LABELS: Record<string, string> = {
   all_workpapers_signed_off: 'All workpapers are signed off',
   no_open_review_notes: 'No review notes are open',
   all_findings_agreed_or_accepted: 'All findings are agreed or risk-accepted',
-  all_findings_closed: 'All findings are closed',
+  all_findings_owned_and_submitted: 'All findings have owners and have been sent for management review',
   has_procedure_and_conclusion: 'Procedure and conclusion are completed',
   reviewer_is_not_preparer: 'The reviewer is not the preparer',
   signer_is_not_preparer: 'The signer is not the preparer',

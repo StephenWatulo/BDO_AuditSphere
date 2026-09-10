@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { SimpleSelect } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { errorMessage } from '@/lib/api';
 
 export interface EditableFieldProps {
   label: React.ReactNode;
@@ -49,13 +50,17 @@ export function EditableField({
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(String(value ?? ''));
   const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
   React.useEffect(() => setDraft(String(value ?? '')), [value]);
 
   const cancel = () => {
+    setSaveError(null);
     setDraft(String(value ?? ''));
     setEditing(false);
   };
   const commit = async () => {
+    if (saving) return;
+    setSaveError(null);
     if (draft === String(value ?? '')) {
       setEditing(false);
       return;
@@ -64,6 +69,8 @@ export function EditableField({
     try {
       await onSave(draft);
       setEditing(false);
+    } catch (error) {
+      setSaveError(errorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -88,10 +95,12 @@ export function EditableField({
         {editing ? (
           <div className="flex items-start gap-1">
             {options ? (
-              <SimpleSelect value={draft} onValueChange={(v) => setDraft(v)} options={options} className="h-8" allowClear clearLabel="None" />
+              <SimpleSelect value={draft} disabled={saving} aria-label={typeof label === 'string' ? label : undefined} onValueChange={(v) => setDraft(v)} options={options} className="h-8" allowClear clearLabel="None" />
             ) : multiline ? (
               <Textarea
                 autoFocus
+                aria-label={typeof label === 'string' ? label : undefined}
+                disabled={saving}
                 rows={rows}
                 value={draft}
                 placeholder={placeholder}
@@ -104,6 +113,8 @@ export function EditableField({
             ) : (
               <Input
                 autoFocus
+                aria-label={typeof label === 'string' ? label : undefined}
+                disabled={saving}
                 type={type}
                 value={draft}
                 placeholder={placeholder}
@@ -136,6 +147,7 @@ export function EditableField({
           </button>
         )}
         {hint && editing ? <p className="mt-1 text-2xs text-muted-foreground">{hint}</p> : null}
+        {saveError && editing ? <p role="alert" className="mt-1 text-xs text-destructive">{saveError}</p> : null}
       </dd>
     </div>
   );

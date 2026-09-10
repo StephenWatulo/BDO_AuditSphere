@@ -1,0 +1,59 @@
+# BDO AuditSphere - pilot overrides for infra/docker/docker-compose.yml
+#
+# Purpose: run the Compose stack on ONE Windows machine and share it on the
+# office network, exposing only the web app (port 3000). Always pass both files:
+#
+#   docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.pilot.yml --env-file .env up -d --build
+#
+# What it changes versus the base file
+#   1. Documents are stored on this machine's disk (PILOT_DATA_DIR/storage) with the
+#      "local" storage driver, shared by the api and worker containers. The base
+#      compose file never sets STORAGE_DRIVER, so the API silently falls back to a
+#      folder inside the container that is lost on rebuild and invisible to the
+#      worker. (For MinIO/S3 instead, set STORAGE_DRIVER=s3 and an S3_ENDPOINT that
+#      browsers can reach, e.g. http://PILOT-PC:9000, and publish port 9000.)
+#   2. Postgres, MinIO, Mailpit and the API are bound to 127.0.0.1 so they are
+#      reachable from this machine only. Users reach the API through the web app's
+#      /api rewrite. (PostgreSQL's binding is set via POSTGRES_PORT in .env.)
+#
+# Requires Docker Compose v2.24 or newer (Docker Desktop 4.27+) for the !override tag.
+
+services:
+  api:
+    environment:
+      STORAGE_DRIVER: local
+      LOCAL_STORAGE_DIR: /data/storage
+    volumes:
+      - ${PILOT_DATA_DIR:?set PILOT_DATA_DIR in .env}/storage:/data/storage
+    ports: !override
+      - "127.0.0.1:4000:4000"
+
+  worker:
+    environment:
+      STORAGE_DRIVER: local
+      LOCAL_STORAGE_DIR: /data/storage
+    volumes:
+      - ${PILOT_DATA_DIR:?set PILOT_DATA_DIR in .env}/storage:/data/storage
+
+  minio:
+    ports: !override
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
+  mailpit:
+    ports: !override
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
+  # web keeps "3000:3000" from the base file: this is the one port users connect to.
+
+  # ---- Optional: real email through an Office 365 / SMTP relay ----------------
+  # The base file hardcodes Mailpit. To send real mail, add these five lines to the
+  # `environment:` block of BOTH the api and the worker services above, and put
+  # SMTP_USER / SMTP_PASS / SMTP_FROM in .env (never in this file):
+  #
+  #     SMTP_HOST: smtp.office365.com
+  #     SMTP_PORT: "587"
+  #     SMTP_USER: ${SMTP_USER}
+  #     SMTP_PASS: ${SMTP_PASS}
+  #     SMTP_FROM: ${SMTP_FROM}

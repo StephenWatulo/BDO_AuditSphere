@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RequirePermission } from '../common/decorators';
-import { CreateUserDto, SetRolesDto, UpdateUserDto, UserListQueryDto } from './users.dto';
+import { CreateUserDto, SetRolesDto, UpdateUserDto, UserListQueryDto, UserOptionsQueryDto } from './users.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
@@ -15,6 +15,13 @@ export class UsersController {
   @ApiOperation({ summary: 'List users' })
   list(@Query() query: UserListQueryDto) {
     return this.users.list(query);
+  }
+
+  @Get('users/options')
+  @RequirePermission('user:read', 'finding:respond')
+  @ApiOperation({ summary: 'Active users for assignment, limited to basic contact details' })
+  options(@Query() query: UserOptionsQueryDto) {
+    return this.users.options(query);
   }
 
   @Get('users/:id')

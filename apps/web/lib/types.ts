@@ -316,6 +316,7 @@ export type PlanItemSource =
   | 'AUDIT_COMMITTEE'
   | 'ROTATIONAL';
 export type EngagementType =
+  | 'INTERNAL_AUDIT'
   | 'OPERATIONAL'
   | 'FINANCIAL'
   | 'COMPLIANCE'
@@ -965,6 +966,19 @@ export type AiFeature =
   | 'search.nl';
 
 export interface AiCopilotResponse {
+  version?: string;
+  reviewRequired?: true;
+  reviewNotice?: string;
+  prompt?: string;
+  sections?: import('@auditsphere/shared').AssistantContent['sections'];
+  exceptions?: import('@auditsphere/shared').AssistantContent['exceptions'];
+  reviewerNotes?: import('@auditsphere/shared').AssistantContent['reviewerNotes'];
+  evidenceAssessment?: import('@auditsphere/shared').AssistantContent['evidenceAssessment'];
+  ratingProposal?: import('@auditsphere/shared').AssistantContent['ratingProposal'];
+  sourceRegister?: import('@auditsphere/shared').AuditSource[];
+  contextLinks?: import('@auditsphere/shared').AuditAssistantResponse['contextLinks'];
+  contextWarnings?: string[];
+  search?: import('@auditsphere/shared').AuditSearchSummary;
   id: UUID;
   createdAt: ISODate;
   provider: 'openai-compatible' | 'local-rulepack' | 'local-fallback';

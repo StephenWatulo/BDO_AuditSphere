@@ -40,7 +40,7 @@ export const ENGAGEMENT_WORKFLOW: StateMachine<EngagementStage> = {
     { from: 'REVIEW', to: 'FIELDWORK', action: 'return_to_fieldwork', label: 'Return to fieldwork', permission: 'workpaper:review' },
     { from: 'REVIEW', to: 'REPORTING', action: 'start_reporting', label: 'Start reporting', permission: 'engagement:advance_stage', guards: ['all_workpapers_signed_off', 'no_open_review_notes'] },
     { from: 'REPORTING', to: 'FOLLOW_UP', action: 'issue_report', label: 'Issue report', permission: 'engagement:issue_report', guards: ['all_findings_agreed_or_accepted'] },
-    { from: 'FOLLOW_UP', to: 'CLOSED', action: 'close', label: 'Close engagement', permission: 'engagement:close', guards: ['all_findings_closed'] },
+    { from: 'FOLLOW_UP', to: 'CLOSED', action: 'close', label: 'Close engagement', permission: 'engagement:close', guards: ['all_findings_owned_and_submitted'] },
     { from: 'PLANNING', to: 'CLOSED', action: 'cancel', label: 'Cancel engagement', permission: 'engagement:close' },
   ],
 };

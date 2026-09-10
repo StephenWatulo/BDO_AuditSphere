@@ -4,7 +4,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, RequirePermission } from '../common/decorators';
-import { AiInteractionListQueryDto, CopilotRequestDto, UpdateAiInteractionDto, UploadAiContextDto } from './ai.dto';
+import { AiInteractionListQueryDto, AiTargetQueryDto, CopilotRequestDto, UpdateAiInteractionDto, UploadAiContextDto } from './ai.dto';
+import { AuditContextService } from './audit-context.service';
 import { AiService } from './ai.service';
 import { AiContextService } from './ai-context.service';
 import { MAX_CONTEXT_BYTES } from './context-extractor.service';
@@ -13,7 +14,19 @@ import { MAX_CONTEXT_BYTES } from './context-extractor.service';
 @ApiCookieAuth('as_access')
 @Controller('ai')
 export class AiController {
-  constructor(private readonly ai: AiService, private readonly context: AiContextService) {}
+  constructor(private readonly ai: AiService, private readonly context: AiContextService, private readonly auditContext: AuditContextService) {}
+
+  @Get('status')
+  @RequirePermission('ai:use')
+  status() { return this.ai.status(); }
+
+  @Get('targets')
+  @RequirePermission('ai:use')
+  targets(@Query() query: AiTargetQueryDto, @CurrentUser() user: AuthUser) { return this.auditContext.targets(query.type, query.q ?? '', user); }
+
+  @Get('interactions/:id')
+  @RequirePermission('ai:use')
+  interaction(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) { return this.ai.get(id, user); }
 
   @Post('context-documents')
   @RequirePermission('ai:use')

@@ -2,12 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { ListParams, Paged, Role, RoleKey, User, UserStatus } from '@/lib/types';
+import type { ListParams, Paged, Role, RoleKey, User, UserRef, UserStatus } from '@/lib/types';
 import { compactParams, useApiMutation } from './helpers';
 
 export const userKeys = {
   all: ['users'] as const,
   list: (params: Record<string, unknown>) => ['users', 'list', params] as const,
+  options: (params: Record<string, unknown>) => ['users', 'options', params] as const,
   detail: (id: string) => ['users', 'detail', id] as const,
   roles: ['roles'] as const,
 };
@@ -27,6 +28,11 @@ export function useUser(id?: string) {
     queryFn: () => api.get<User>(`/users/${id}`),
     enabled: !!id,
   });
+}
+
+export function useUserOptions(params: ListParams & { role?: string } = {}, enabled = true) {
+  const p = compactParams(params);
+  return useQuery({ queryKey: userKeys.options(p), queryFn: () => api.get<Paged<UserRef>>('/users/options', p), enabled });
 }
 
 export function useRoles() {

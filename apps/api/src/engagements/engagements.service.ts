@@ -128,11 +128,22 @@ export class EngagementsService {
       });
       return { ok: pending === 0, message: `${pending} finding(s) awaiting management agreement` };
     });
-    registry.register<Engagement>(m, 'all_findings_closed', async ({ entity }: EngagementGuardCtx) => {
-      const open = await this.prisma.scoped().finding.count({
-        where: { engagementId: entity.id, deletedAt: null, status: { notIn: ['CLOSED', 'RISK_ACCEPTED'] } },
+    registry.register<Engagement>(m, 'all_findings_owned_and_submitted', async ({ entity }: EngagementGuardCtx) => {
+      const findings = await this.prisma.scoped().finding.findMany({
+        where: { engagementId: entity.id, deletedAt: null },
+        select: { status: true, actionOwnerId: true, actionOwnerName: true, actionOwnerEmail: true },
       });
-      return { ok: open === 0, message: `${open} finding(s) still open` };
+      const unassigned = findings.filter((finding) =>
+        !finding.actionOwnerId && isBlank(finding.actionOwnerName) && isBlank(finding.actionOwnerEmail),
+      ).length;
+      const drafts = findings.filter((finding) => finding.status === 'DRAFT').length;
+      return {
+        ok: unassigned === 0 && drafts === 0,
+        message: [
+          unassigned > 0 ? `${unassigned} finding(s) still need an action owner` : '',
+          drafts > 0 ? `${drafts} finding(s) must be sent for management review` : '',
+        ].filter(Boolean).join('; '),
+      };
     });
   }
 

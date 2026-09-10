@@ -24,6 +24,8 @@ const DEFAULTS = { page: 1, pageSize: 25, q: '', sort: '', stage: undefined as s
 
 export default function EngagementsPage() {
   const router = useRouter();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
   const { state, set, sorting, setSorting, reset } = useListParams(DEFAULTS);
   const query = useEngagements({ page: state.page, pageSize: state.pageSize, q: state.q, sort: state.sort, stage: state.stage, type: state.type, status: state.status, mine: state.mine });
 
@@ -47,7 +49,7 @@ export default function EngagementsPage() {
 
   return (
     <>
-      <PageHeader title="Engagements" description="All audits across the lifecycle." actions={<Can permission="engagement:create"><Button asChild><Link href="/engagements/new"><Plus /> New engagement</Link></Button></Can>} />
+      <PageHeader title="Engagements" description="All audits across the lifecycle." actions={mounted ? <Can permission="engagement:create"><Button asChild><Link href="/engagements/new"><Plus /> New engagement</Link></Button></Can> : undefined} />
       <DataTable
         columns={columns}
         data={query.data?.items}

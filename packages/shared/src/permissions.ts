@@ -86,7 +86,7 @@ export const PERMISSIONS = {
   'report:export': 'Export reports',
 
   // AI
-  'ai:use': 'Use AI copilot',
+  'ai:use': 'Use AI Sphere audit assistant',
   'ai:configure': 'Configure AI settings',
 
   // Continuous monitoring

@@ -81,7 +81,7 @@ try {
   await page.goto('/', { timeout: 600000 });
   await page.waitForURL('**/portal', { timeout: 600000 });
   await page.getByRole('heading', { level: 1, name: /Good (morning|afternoon|evening), Samuel/ }).waitFor();
-  await page.getByRole('link', { name: new RegExp(`^${fixture.reference} `) }).first().waitFor();
+  await page.getByRole('link', { name: fixture.title }).first().waitFor();
   // Tiles show an ellipsis until both queries have loaded.
   await tileValue(page, 'Awaiting your response').filter({ hasText: /^\d+$/ }).waitFor();
   assert.equal(await tileValue(page, 'Requests needing action').innerText(), String(openCount));
@@ -93,7 +93,7 @@ try {
   // 2. Requests list, then respond and submit on the fixture.
   await page.getByRole('link', { name: 'My requests' }).click();
   await page.waitForURL('**/portal/requests');
-  await page.getByRole('link', { name: new RegExp(`^${fixture.reference} `) }).first().click();
+  await page.getByRole('link', { name: fixture.title }).first().click();
   await page.waitForURL(`**/portal/requests/${fixture.id}`);
   await page.getByRole('heading', { level: 1, name: fixture.title }).waitFor();
   await page.getByText('Please upload the signed policy.').waitFor();
@@ -113,7 +113,7 @@ try {
   // 3. Actions list and a finding awaiting the management response.
   await page.goto('/portal/actions');
   const finding = awaiting[0];
-  await page.getByRole('link', { name: new RegExp(`^${finding.reference} `) }).first().click();
+  await page.getByRole('link', { name: finding.title }).first().click();
   await page.waitForURL(`**/portal/actions/${finding.id}`);
   await page.getByRole('heading', { level: 1, name: finding.title }).waitFor();
   await page.getByText('Your management response is needed').first().waitFor();

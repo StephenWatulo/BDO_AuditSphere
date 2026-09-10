@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useForm } from 'react-hook-form';
@@ -245,7 +246,7 @@ function RiskPanel({ id, onClose, onEdit }: { id: string; onClose: () => void; o
               </dl>
               {data.controls?.length ? (
                 <div><p className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Linked controls</p>
-                  <ul className="divide-y divide-border rounded-md border border-border">{data.controls.map((c) => <li key={c.id} className="px-3 py-1.5 text-sm"><span className="font-mono text-2xs text-muted-foreground">{c.code}</span> {c.title}</li>)}</ul></div>
+                  <ul aria-label="Linked controls" className="divide-y divide-border rounded-md border border-border">{data.controls.map((c) => <li key={c.id} className="break-words px-3 py-1.5 text-sm"><Can permission="control:read" fallback={<span>{c.code} {c.title}</span>}><Link href={`/controls?control=${c.id}`} className="text-primary hover:underline"><span className="font-mono text-2xs">{c.code}</span> {c.title}</Link></Can></li>)}</ul></div>
               ) : null}
               {data.assessments?.length ? (
                 <div><p className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Assessment history</p>
@@ -272,6 +273,8 @@ const DEFAULTS = { page: 1, pageSize: 25, q: '', sort: '', rating: undefined as 
 export default function RisksPage() {
   const router = useRouter();
   const params = useSearchParams();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
   const selectedId = params.get('risk');
   const openNew = params.get('new') === '1';
   const { state, set, sorting, setSorting, reset } = useListParams(DEFAULTS);
@@ -308,7 +311,7 @@ export default function RisksPage() {
 
   return (
     <>
-      <PageHeader title="Risk register" description="Inherent and residual risk scoring across the audit universe." actions={<Can permission="risk:manage"><Button onClick={() => setDialog({ open: true, risk: null })}><Plus /> New risk</Button></Can>} />
+      <PageHeader title="Risk register" description="Inherent and residual risk scoring across the audit universe." actions={mounted ? <Can permission="risk:manage"><Button onClick={() => setDialog({ open: true, risk: null })}><Plus /> New risk</Button></Can> : undefined} />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
         <div className="xl:col-span-3">
           <DataTable

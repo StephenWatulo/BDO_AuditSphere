@@ -69,6 +69,8 @@ against; the OpenAPI output must match it.
 ## Risks (`risk:*`)
 
 - `GET /risks` filters `entityId`, `processId`, `categoryId`, `rating`, `status`.
+- `GET /risks/:id` includes linked `controls: [{ id, code, title, effectiveness, isKeyControl }]`.
+  These are control summaries, not risk-control join rows.
 - `POST /risks`, `PATCH /risks/:id`. Server recomputes scores with `scoreRisk` from
   `@auditsphere/shared` using the tenant default `ScoringModel`.
 - `POST /risks/:id/assess` `{ periodLabel, inherentLikelihood, inherentImpact,
@@ -80,6 +82,9 @@ against; the OpenAPI output must match it.
 
 - `GET /controls` filters `processId`, `type`, `nature`, `effectiveness`. `POST`, `PATCH`, `GET /:id`.
 - `PUT /controls/:id/risks` `{ riskIds: [] }` sets the risk-control matrix.
+- Control list items, detail, create, update and risk-link responses include
+  `risks: [{ id, code, title, rating }]`, using the actual risk IDs rather than join rows.
+  An unlinked control returns `risks: []`; saving links returns the refreshed assignments.
 - `POST /controls/:id/tests` creates a `ControlTest`; `PATCH /control-tests/:id`.
 
 ## Plans (`plan:*`)
@@ -240,14 +245,42 @@ Library `AUDIT_PROGRAM` content shape:
 - `GET /reports/engagements/:id` returns a draft engagement report assembled from scope,
   objectives, workpapers, evidence and findings.
 
-## AI copilot (`ai:use`)
+## AI Sphere Internal Audit Assistant (`ai:use`)
 
-- `POST /ai/copilot` `{ feature, prompt, targetType?, targetId?, context? }` records an
-  `AiInteraction` and returns a structured response `{ title, narrative, suggestions,
-  checklist, caveats, provider, model, createdAt, interactionId }`.
-- `GET /ai/interactions` lists recent interactions for the current user. Filters:
-  `feature`, `targetType`, `targetId`, `q`, pagination.
-- `PATCH /ai/interactions/:id` stores user feedback `{ accepted?, rating?, feedback? }`.
+- `GET /ai/status` returns the configured provider mode, model, version, review notice
+  and `intelligenceSearch: true` when the upgraded search engine is available.
+- `GET /ai/targets?type=Control&q=approval` returns up to 20 readable record IDs and labels.
+- `POST /ai/copilot` accepts `{ feature, prompt, targetType?, targetId?, context?,
+  documentIds?, impact?, likelihood?, ratingRationale?, populationSize?, searchScope?,
+  searchEngagementId?, searchKinds?, searchPage? }`. Target type
+  and ID must be supplied together; impact and likelihood must be supplied together
+  as integers 1-5. Context document IDs are limited to five private readable uploads.
+- Responses preserve `id`, `title`, `narrative`, `suggestions`, `checklist`, `caveats`,
+  `provider`, `model`, `createdAt` and `sources`; version 2 adds typed `sections`,
+  `exceptions`, `reviewerNotes`, `evidenceAssessment`, `ratingProposal`, `sourceRegister`,
+  `contextLinks`, `contextWarnings`, optional `search`, and the mandatory review notice.
+- `search.nl` uses the local read-through audit index even with a configured model.
+  `searchScope` is `universe` (default) or `engagement`; the latter requires a readable
+  `searchEngagementId`. `searchKinds` may include Engagement, Entity, Process, Risk,
+  Control, Workpaper, Evidence, Finding and ActionPlan; omitted means all answer types.
+  The question's inferred object type is intersected with this scope. Evidence answers
+  can include original Document sources. Action plans use Recommendation records or
+  explicitly labelled finding-level actions where no separate recommendation exists.
+  `searchPage` is 1-based, with 25 results per page.
+- `search.intelligence` contains actual records analysed, metadata coverage percentage
+  (null if incomplete), indexing timestamp, exclusions, text limits, confidence and its
+  basis, total/counts by type, engagement count, result rows, source/trace IDs and the
+  query needed for subsequent pages. `emptyReason` distinguishes `no_data`, `no_match`,
+  `permissions` and `incomplete`. A total retrieval failure returns 503.
+- Evidence Review includes the canonical ten-column `Exception Register` section.
+  Source-reported transaction values are preserved; absent data is not invented.
+- `GET /ai/interactions` returns requester-only metadata, not raw prompts or output.
+  Supports `feature`, pagination and sorting. `GET /ai/interactions/:id` rechecks source
+  access and returns the retained response plus prompt; other requesters receive 404.
+- `PATCH /ai/interactions/:id` stores requester feedback `{ accepted?, rating? }`.
+  Acceptance is usefulness feedback, never formal audit approval.
+- Generation writes only `AiInteraction` and the audit trail. It does not mutate domain
+  risk ratings, workpaper status, findings or reports. See `docs/ai-sphere.md` for limits.
 - When `AI_ENABLED=false` or no provider key is configured, the API uses deterministic local
   rulepacks so the feature remains usable in local/demo environments.
 

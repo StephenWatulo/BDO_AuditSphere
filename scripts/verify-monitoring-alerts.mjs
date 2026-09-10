@@ -16,6 +16,7 @@ page.setDefaultTimeout(25000);
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
 const dialog = page.getByRole('dialog');
+const navigation = { waitUntil: 'domcontentloaded', timeout: 120000 };
 const assertFits = async (target) => {
   assert.ok(await target.evaluate((element) => element.scrollWidth <= element.clientWidth + 1), 'Alert panel overflows horizontally');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Page overflows horizontally');
@@ -39,13 +40,13 @@ try {
   assert.equal(Number(detail.amount), Number(detail.detail.amount));
   assert.ok(detail.rule.description);
   assert.equal((await reader.request.get(endpoint)).status(), 200);
-  assert.equal((await reader.request.patch(endpoint, { data: { assigneeId: null } })).status(), 403);
+  assert.equal((await reader.request.patch(endpoint, { data: {} })).status(), 403);
   assert.equal((await denied.request.get(endpoint)).status(), 403);
   assert.equal((await admin.request.get('/api/v1/monitoring/alerts/not-a-uuid')).status(), 400);
   assert.equal((await admin.request.get(`/api/v1/monitoring/alerts/${randomUUID()}`)).status(), 404);
   console.log('PASS detail API, amounts, read/manage permissions and missing IDs');
 
-  await page.goto('/monitoring', { timeout: 120000 });
+  await page.goto('/monitoring', navigation);
   const titleLink = page.getByRole('link', { name: first.title, exact: true });
   await titleLink.waitFor();
   await page.getByRole('combobox', { name: 'Alert status', exact: true }).first().click();
@@ -61,7 +62,7 @@ try {
   assert.equal(await page.evaluate(() => navigator.clipboard.readText()), page.url());
   await assertFits(dialog);
   await page.screenshot({ path: join(output, 'alert-desktop.png'), fullPage: true });
-  await page.reload();
+  await page.reload(navigation);
   await dialog.getByRole('heading', { name: first.title, exact: true }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await assertFits(dialog);
@@ -76,7 +77,7 @@ try {
   await dialog.waitFor({ state: 'detached' });
   console.log('PASS title links, keyboard opening, copy link, refresh, close and mobile layout');
 
-  await page.goto('/monitoring?page=2&pageSize=1');
+  await page.goto('/monitoring?page=2&pageSize=1', navigation);
   await page.getByRole('link', { name: list.items[1].title, exact: true }).waitFor();
   await page.locator('tbody tr').first().focus();
   await page.keyboard.press('Enter');
@@ -89,7 +90,7 @@ try {
 
   const readPage = await reader.newPage();
   readPage.on('pageerror', (error) => errors.push(error.message));
-  await readPage.goto(`/monitoring?alert=${first.id}`);
+  await readPage.goto(`/monitoring?alert=${first.id}`, navigation);
   await readPage.getByRole('dialog').getByRole('heading', { name: first.title, exact: true }).waitFor();
   await readPage.getByRole('dialog').getByRole('heading', { name: 'Transaction details', exact: true }).waitFor();
   assert.equal(await readPage.getByRole('dialog').getByRole('combobox').count(), 0);
@@ -110,7 +111,7 @@ try {
     return route.fulfill({ json: current });
   });
   await page.route(/\/api\/v1\/monitoring\/alerts(?:\?.*)?$/, (route) => route.fulfill({ json: { ...list, items: list.items.map((alert) => alert.id === first.id ? current : alert) } }));
-  await page.goto(`/monitoring?alert=${first.id}`);
+  await page.goto(`/monitoring?alert=${first.id}`, navigation);
   await dialog.getByLabel('Status', { exact: true }).click();
   const changed = page.waitForResponse((res) => res.url().endsWith(endpoint) && res.request().method() === 'PATCH');
   await page.getByRole('option', { name: 'Investigating', exact: true }).click();
@@ -124,17 +125,17 @@ try {
   console.log('PASS status and assignee controls with safe mocked updates');
 
   current = { ...current, title: 'Long alert ' + 'TransactionReference'.repeat(20), detail: { repeatedPayment: false, exceptionCount: 0, narrative: '<script>bad()</script>', records: [{ invoice: 'INV-2', flags: ['duplicate', 'review'] }], explanation: 'x'.repeat(500) } };
-  await page.reload();
+  await page.reload(navigation);
   await dialog.getByRole('heading', { name: 'Transaction details', exact: true }).waitFor();
   await dialog.getByText('<script>bad()</script>', { exact: true }).waitFor();
   await assertFits(dialog);
   await page.screenshot({ path: join(output, 'alert-long-mobile.png'), fullPage: true });
   current = { ...detail, detail: {}, amount: null, rule: null, assignee: null, assigneeId: null };
-  await page.reload();
+  await page.reload(navigation);
   await dialog.getByText('No transaction details recorded.', { exact: true }).waitFor();
   await dialog.getByText('Rule details unavailable.', { exact: true }).waitFor();
   fail = true;
-  await page.reload();
+  await page.reload(navigation);
   await dialog.getByText('Could not load alert', { exact: true }).waitFor();
   fail = false;
   await dialog.getByRole('button', { name: 'Retry', exact: true }).click();

@@ -24,6 +24,7 @@
     "db:local:status": "tsx scripts/local-postgres.ts --status",
     "db:status": "pnpm --filter @auditsphere/db exec prisma migrate status",
     "db:studio": "pnpm --filter @auditsphere/db studio",
+    "manual:build": "tsx scripts/build-user-manual.ts",
     "format": "prettier --write \"**/*.{ts,tsx,md,json,yml,yaml}\""
   },
   "devDependencies": {
