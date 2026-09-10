@@ -1,50 +1,25 @@
 /**
- * End-to-end suite. Requires a seeded Postgres (`pnpm db:deploy && pnpm db:seed`)
- * reachable through DATABASE_URL. When the variable is not exported, the root
- * `.env` is loaded the same way the API does at boot; if it is still missing the
- * whole file is skipped with a visible warning.
+ * End-to-end suite. Requires a migrated, seeded, dedicated local test database.
+ * test/setup.ts validates E2E_DATABASE_URL before this suite imports the app.
  *
  * Seed contract (packages/db/prisma/seed.ts): tenant slug `bdo-ea` with
  * admin@bdo-ea.com / Admin123! holding GLOBAL_ADMIN.
  */
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { parseEnv } from 'node:util';
-import request from 'supertest';
-import { apiRoot, repoRoot } from '../src/config/repo-root';
-
-// Jest gives each test file its own copy of process.env, so process.loadEnvFile
-// would populate the wrong object. Parse and assign explicitly; values already
-// in the environment win, matching dotenv semantics.
-if (!process.env.DATABASE_URL) {
-  for (const envFile of [join(apiRoot(), '.env'), join(repoRoot(), '.env')]) {
-    if (!existsSync(envFile)) continue;
-    for (const [key, value] of Object.entries(parseEnv(readFileSync(envFile, 'utf8')))) {
-      process.env[key] ??= value;
-    }
-  }
-}
-
-const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
-  console.warn('[e2e] DATABASE_URL is not set and no .env was found; skipping the API e2e suite.');
-}
-const describeIf = DATABASE_URL ? describe : describe.skip;
-
-process.env.NODE_ENV = process.env.NODE_ENV ?? 'test';
-process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? 'e2e-access-secret-at-least-32-characters-long';
-process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? 'e2e-refresh-secret-at-least-32-characters-long';
-process.env.ENCRYPTION_KEY = process.env.ENCRYPTION_KEY ?? '0123456789abcdef'.repeat(4);
-process.env.STORAGE_DRIVER = process.env.STORAGE_DRIVER ?? 'local';
-process.env.RUN_JOBS = 'false';
-process.env.SMTP_HOST = '';
+import JSZip from 'jszip';
+import request, { type Response } from 'supertest';
 
 const ADMIN = { email: 'admin@bdo-ea.com', password: 'Admin123!' };
 const stamp = Date.now().toString(36).toUpperCase();
+const binary = (res: Response, done: (error: Error | null, body: Buffer) => void) => {
+  const chunks: Buffer[] = [];
+  res.on('data', (chunk: Buffer) => chunks.push(chunk));
+  res.on('end', () => done(null, Buffer.concat(chunks)));
+  res.on('error', (error) => done(error, Buffer.alloc(0)));
+};
 
-describeIf('AuditSphere API (e2e)', () => {
+describe('AuditSphere API (e2e)', () => {
   let app: INestApplication;
   let agent: ReturnType<typeof request.agent>;
   let entityId: string;
@@ -234,6 +209,70 @@ describeIf('AuditSphere API (e2e)', () => {
 
     const needsEvidence = await owner.post(`/api/v1/findings/${findingId}/transition`).send({ action: 'request_validation' }).expect(422);
     expect(needsEvidence.body.guards.map((g: { guard: string }) => g.guard)).toContain('has_implementation_evidence');
+  });
+
+  it.each(['partner', 'committee'])('loads the %s dashboard without server errors', async (view) => {
+    const res = await agent.get(`/api/v1/dashboards/${view}`).expect(200);
+    expect(res.body).toEqual(expect.any(Object));
+    expect(res.body).not.toHaveProperty('statusCode', 500);
+  });
+
+  it.each([
+    'Show me all procurement-related findings identified across completed audits.',
+    'Which risks have linked findings?',
+    'Show me all open audit actions with owners and due dates.',
+    'Which controls have recurring weaknesses?',
+  ])('retrieves seeded audit intelligence: %s', async (prompt) => {
+    const before = (await agent.get(`/api/v1/findings/${findingId}`).expect(200)).body;
+    const status = await agent.get('/api/v1/ai/status').expect(200);
+    expect(status.body.intelligenceSearch).toBe(true);
+    const response = await agent.post('/api/v1/ai/copilot').send({ feature: 'search.nl', prompt }).expect(201);
+    expect(response.body.reviewRequired).toBe(true);
+    expect(response.body.sourceRegister.length).toBeGreaterThan(0);
+    expect(response.body.search.intelligence.totalMatches).toBeGreaterThan(0);
+    expect(response.body.search.intelligence.incompleteKinds).toEqual([]);
+    const history = await agent.get(`/api/v1/ai/interactions/${response.body.id}`).expect(200);
+    expect(history.body.search.intelligence).toEqual(response.body.search.intelligence);
+    const after = (await agent.get(`/api/v1/findings/${findingId}`).expect(200)).body;
+    expect({ status: after.status, severity: after.severity, updatedAt: after.updatedAt }).toEqual({ status: before.status, severity: before.severity, updatedAt: before.updatedAt });
+  });
+
+  it('uploads private AI context and downloads the original bytes', async () => {
+    const content = Buffer.from('Transaction,Vendor,Amount,Approval\nPO-100,Synthetic Supplier,650000,Approver not identified\n');
+    const uploaded = await agent.post('/api/v1/ai/context-documents')
+      .attach('file', content, { filename: 'synthetic-evidence.csv', contentType: 'text/csv' }).expect(201);
+    expect(uploaded.body.preview).toContain('Synthetic Supplier');
+    const id = uploaded.body.id;
+    const downloaded = await agent.get(`/api/v1/documents/${id}/content`).buffer(true).parse(binary).expect(200);
+    expect(downloaded.body).toEqual(content);
+    await request(app.getHttpServer()).get(`/api/v1/documents/${id}/content`).expect(401);
+    const other = request.agent(app.getHttpServer());
+    await other.post('/api/v1/auth/login').send({ email: 'manager@bdo-ea.com', password: ADMIN.password }).expect(200);
+    await other.get(`/api/v1/documents/${id}/content`).expect(403);
+    await other.post('/api/v1/auth/logout').expect(204);
+    await agent.delete(`/api/v1/documents/${id}`).expect(204);
+  });
+
+  it.each(['pdf', 'docx', 'xlsx'])('downloads a complete %s finding register', async (format) => {
+    const res = await agent.get(`/api/v1/reports/findings/export?format=${format}`).buffer(true).parse(binary).expect(200);
+    const bytes: Buffer = res.body;
+    expect(Number(res.headers['content-length'])).toBe(bytes.length);
+    expect(res.headers['content-disposition']).toContain(`.${format}`);
+    if (format === 'pdf') {
+      expect(res.headers['content-type']).toContain('application/pdf');
+      expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+      expect(bytes.toString('latin1').trimEnd().endsWith('%%EOF')).toBe(true);
+    } else {
+      const zip = await JSZip.loadAsync(bytes, { checkCRC32: true });
+      expect(zip.file(format === 'docx' ? 'word/document.xml' : 'xl/workbook.xml')).not.toBeNull();
+    }
+  });
+
+  it('serves the authenticated user manual and refuses anonymous downloads', async () => {
+    await request(app.getHttpServer()).get('/api/v1/help/user-manual?format=md').expect(401);
+    const res = await agent.get('/api/v1/help/user-manual?format=md').buffer(true).parse(binary).expect(200);
+    expect(res.body.toString('utf8')).toContain('AI Sphere');
+    expect(res.headers['cache-control']).toBe('private, no-store');
   });
 
   it('refreshes the session and logs out', async () => {

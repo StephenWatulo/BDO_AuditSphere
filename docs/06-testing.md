@@ -18,6 +18,8 @@ pnpm --filter @auditsphere/shared test
 pnpm --filter @auditsphere/api test
 pnpm --filter @auditsphere/api test:e2e    # requires a migrated and seeded database (see below)
 pnpm -r typecheck && pnpm -r run --if-present lint
+pnpm verify                          # shared builds, typecheck, lint, unit tests, production builds
+pnpm verify:full                     # same checks plus HTTP tests; requires E2E_DATABASE_URL
 ```
 
 ### End-to-end tests
@@ -25,25 +27,53 @@ pnpm -r typecheck && pnpm -r run --if-present lint
 The e2e suite runs against a real PostgreSQL with the demo seed loaded, so authentication,
 tenancy and workflow guards are exercised as in production.
 
-```bash
-pnpm db:local                          # or docker compose postgres
-pnpm db:deploy && pnpm db:seed
-pnpm --filter @auditsphere/api test:e2e
+Start a separate test cluster in one PowerShell terminal:
+
+```powershell
+$env:LOCAL_PG_DIR = "$PWD/.local-dev/test-postgres"
+$env:LOCAL_PG_PORT = '5433'
+$env:LOCAL_PG_DATABASE = 'auditsphere_test'
+pnpm db:local
 ```
 
-The suite reads `DATABASE_URL` from the environment. When it is not exported it loads
-`apps/api/.env` and then the repository root `.env`, exactly as the API does at boot. If no
-database URL can be found the whole file is skipped and a `[e2e]` warning is printed, so a
-run that reports only skipped tests means the database was not configured.
+In another terminal, migrate and seed only that disposable test database:
+
+```powershell
+$env:E2E_DATABASE_URL = 'postgresql://auditsphere:auditsphere@localhost:5433/auditsphere_test?schema=public'
+$env:DATABASE_URL = $env:E2E_DATABASE_URL
+pnpm db:deploy
+pnpm db:seed
+pnpm verify:full
+```
+
+Do not run migrations or the demo seed against an existing working audit database. The
+HTTP test setup requires an explicit `E2E_DATABASE_URL`, a loopback host, the public schema,
+and a database named `auditsphere_test` or `auditsphere_test_<suffix>`. Missing or unsafe
+configuration fails the suite rather than silently skipping it. It never takes the database
+from the application's `.env`. Test uploads go under `.local-dev/test-storage/`; outbound AI,
+email, Microsoft sign-in and background jobs are disabled. Unit tests exercise these guards.
+
+The HTTP suite also covers both executive dashboards, the four audit intelligence acceptance
+queries with unchanged finding status/rating, private context uploads and access checks, complete
+PDF/Word/Excel downloads, authenticated manual access, session refresh and logout.
 
 Tests must not depend on row counts from the seed (other tests may add data); they should create
 what they need under a unique reference and assert on it. Mutations should use a dedicated
 engagement created by the test.
 
-CI (`.github/workflows/ci.yml`) provisions a `postgres:16` service, runs `pnpm db:deploy`,
+CI (`.github/workflows/ci.yml`) provisions a `postgres:16` service with `auditsphere_test_ci`, runs `pnpm db:deploy`,
 `pnpm db:seed`, checks the schema is in sync with the migration history, runs `pnpm -r test`,
 then runs the API e2e suite (`pnpm --filter @auditsphere/api test:e2e`) against the same
 database before building.
+
+### Restoring test tools
+
+Jest, ts-jest, Vitest, Playwright and TypeScript are already pinned in the workspace manifests
+and `pnpm-lock.yaml`; no additional test package is required. Run `pnpm install --frozen-lockfile
+--prod=false` when development tools are missing. Do not change dependency versions to repair
+an incomplete local installation. Keep database files, uploads, environment values and browser
+artifacts out of Git. The existing `scripts/verify-*.mjs` files provide deeper desktop/mobile
+acceptance checks against a permitted demo instance; see their `SMOKE_*` environment settings.
 
 ### Seed-based smoke tests
 

@@ -5,6 +5,7 @@ const config: Config = {
   testEnvironment: 'node',
   moduleFileExtensions: ['js', 'json', 'ts'],
   testRegex: '.*\\.spec\\.ts$',
+  maxWorkers: 2,
   transform: {
     '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.json', isolatedModules: true }],
   },
