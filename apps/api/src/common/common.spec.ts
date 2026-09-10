@@ -90,6 +90,25 @@ describe('buildAuthUser', () => {
     const entra = buildAuthUser({ ...base, authProvider: 'ENTRA_ID', roles: [{ role: { key: 'AUDIT_MANAGER', permissions: [] } }] } as any);
     expect(entra.mfaRequiredToEnrol).toBe(false);
   });
+
+  it('can require MFA for every local production account', () => {
+    const localOwner = buildAuthUser(
+      { ...base, roles: [{ role: { key: 'BUSINESS_OWNER', permissions: [] } }] } as any,
+      'all',
+    );
+    expect(localOwner.mfaRequiredToEnrol).toBe(true);
+    expect(buildAuthUser({ ...base, roles: [] } as any, 'off').mfaRequiredToEnrol).toBe(false);
+  });
+
+  it('exposes the temporary-password requirement without leaking other preferences', () => {
+    const user = buildAuthUser({
+      ...base,
+      preferences: { mustChangePassword: true, theme: 'dark' },
+      roles: [{ role: { key: 'GLOBAL_ADMIN', permissions: [] } }],
+    } as any);
+    expect(user.mustChangePassword).toBe(true);
+    expect(user).not.toHaveProperty('preferences');
+  });
 });
 
 describe('parseDuration', () => {

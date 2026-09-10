@@ -13,6 +13,7 @@ data:
   JWT_ACCESS_TTL: 15m
   JWT_REFRESH_TTL: 30d
   COOKIE_SECURE: "true"
+  STORAGE_DRIVER: s3
   ENTRA_REDIRECT_URI: https://auditsphere.example.com/api/v1/auth/entra/callback
   S3_ENDPOINT: https://s3.eu-west-1.amazonaws.com
   S3_REGION: eu-west-1

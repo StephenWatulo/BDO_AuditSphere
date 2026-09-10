@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@auditsphere/db';
 import { AGEING_BUCKETS, ageingBucket } from '@auditsphere/shared';
 import { DashboardsService } from '../dashboards/dashboards.service';
@@ -7,6 +7,7 @@ import { startOfUtcDay, USER_SUMMARY_SELECT } from '../common/utils';
 import { OPEN_STATUSES } from '../findings/findings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EngagementRegisterReportQueryDto, FindingRegisterReportQueryDto, ReportQueryDto } from './reports.dto';
+import { ObjectAccessService } from '../auth/object-access.service';
 
 // Exports bypass screen pagination, with an explicit limit instead of silent truncation.
 export async function reportRows<T>(query: PaginationDto, count: () => Promise<number>, find: (p: { skip: number; take: number }) => Promise<T[]>, all: boolean) {
@@ -21,9 +22,11 @@ export class ReportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dashboards: DashboardsService,
+    private readonly access: ObjectAccessService,
   ) {}
 
   async executive(query: ReportQueryDto) {
+    if (this.access.isPortalScoped) throw new ForbiddenException('Executive reporting is restricted to the audit function and audit committee');
     const db = this.prisma.scoped();
     const now = new Date();
     const from = query.from ? startOfUtcDay(new Date(query.from)) : undefined;
@@ -76,6 +79,7 @@ export class ReportsService {
     const now = new Date();
     const where: Prisma.FindingWhereInput = {
       deletedAt: null,
+      AND: [this.access.findingScope()],
       ...(query.status ? { status: query.status } : {}),
       ...(query.severity ? { severity: query.severity } : {}),
       ...(query.q ? { OR: [{ title: { contains: query.q, mode: 'insensitive' } }, { reference: { contains: query.q, mode: 'insensitive' } }] } : {}),
@@ -129,6 +133,7 @@ export class ReportsService {
     const db = this.prisma.scoped();
     const where: Prisma.EngagementWhereInput = {
       deletedAt: null,
+      AND: [this.access.engagementScope()],
       ...(query.stage ? { stage: query.stage } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.leadId ? { leadId: query.leadId } : {}),
@@ -176,7 +181,9 @@ export class ReportsService {
   }
 
   async engagementReport(id: string) {
+    await this.access.assertEngagement(id);
     const db = this.prisma.scoped();
+    const hiddenRelation = { id: '00000000-0000-4000-8000-000000000000' };
     const engagement = await db.engagement.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -184,9 +191,9 @@ export class ReportsService {
         lead: { select: USER_SUMMARY_SELECT },
         manager: { select: USER_SUMMARY_SELECT },
         partner: { select: USER_SUMMARY_SELECT },
-        findings: { where: { deletedAt: null }, orderBy: [{ severity: 'desc' }, { reference: 'asc' }], select: { id: true, reference: true, title: true, severity: true, status: true, criteria: true, condition: true, cause: true, impact: true, recommendation: true, managementResponse: true, dueDate: true, actionOwnerName: true, actionOwner: { select: USER_SUMMARY_SELECT } } },
-        workpapers: { where: { deletedAt: null }, select: { id: true, reference: true, title: true, status: true, conclusion: true } },
-        evidence: { select: { id: true, reference: true, description: true, type: true, isSufficient: true } },
+        findings: { where: { deletedAt: null, AND: [this.access.findingScope()] }, orderBy: [{ severity: 'desc' }, { reference: 'asc' }], select: { id: true, reference: true, title: true, severity: true, status: true, criteria: true, condition: true, cause: true, impact: true, recommendation: true, managementResponse: true, dueDate: true, actionOwnerName: true, actionOwner: { select: USER_SUMMARY_SELECT } } },
+        workpapers: { where: this.access.isPortalScoped ? hiddenRelation : { deletedAt: null }, select: { id: true, reference: true, title: true, status: true, conclusion: true } },
+        evidence: { where: this.access.isPortalScoped ? hiddenRelation : {}, select: { id: true, reference: true, description: true, type: true, isSufficient: true } },
       },
     });
     if (!engagement) throw new NotFoundException('Engagement not found');

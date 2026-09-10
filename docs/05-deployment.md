@@ -63,6 +63,9 @@ Every key in [`.env.example`](../.env.example). Secrets are marked. Values in th
 | `S3_ACCESS_KEY` | yes | Access key with the policy in section 8. |
 | `S3_SECRET_KEY` | yes | Secret key. |
 | `S3_FORCE_PATH_STYLE` | no | `true` for MinIO and most gateways, `false` for AWS. |
+| `MALWARE_SCAN_REQUIRED` | no | Keep `false` only for local development. Production sets `true`; failed or unavailable scans leave uploads quarantined. |
+| `CLAMAV_HOST`, `CLAMAV_PORT` | no | Reachable ClamAV-compatible `clamd` INSTREAM endpoint. The production overlay expects an externally operated scanner service. |
+| `CLAMAV_TIMEOUT_MS` | no | Maximum scan duration before the upload fails closed (default 60 seconds). |
 
 ### AI
 
@@ -104,7 +107,7 @@ cp .env.example .env                 # defaults match the embedded database
 
 pnpm db:local                        # terminal 1: PostgreSQL 17 on localhost:5432, Ctrl+C stops it
 pnpm db:deploy                       # terminal 2: apply migrations (prisma migrate deploy)
-pnpm db:seed                         # demo tenant, users, universe, engagements (idempotent)
+pnpm db:seed:demo                    # synthetic local/test tenant and data (idempotent)
 pnpm dev                             # api on :4000 and web on :3000 (or pnpm dev:api / pnpm dev:web)
 ```
 
@@ -139,7 +142,7 @@ See [infra/README.md](../infra/README.md#local-stack-with-docker-compose). In sh
 ```bash
 cp .env.example .env    # set JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, ENCRYPTION_KEY
 docker compose -f infra/docker/docker-compose.yml --env-file .env up -d --build
-pnpm db:seed            # from the host, against localhost:5432
+pnpm db:seed:demo       # from the host, against localhost:5432
 ```
 
 The API container runs `prisma migrate deploy` on start (`RUN_MIGRATIONS=true`); the worker
@@ -153,7 +156,11 @@ Full steps in [infra/README.md](../infra/README.md#kubernetes). Summary:
    S3-compatible bucket with versioning and server-side encryption.
 2. Install ingress-nginx, metrics-server and cert-manager (or bring your own TLS secret).
 3. Create `auditsphere-secrets`, `ghcr-pull` and `auditsphere-tls` in the `auditsphere`
-   namespace. Keys are listed in `infra/k8s/base/secret.yaml`.
+   namespace. The required key contract is documented in the excluded
+   `infra/k8s/base/secret.yaml` example. The migration URL is separately configurable, but the
+   current runtime must also use the schema owner because not every Prisma query runs inside a
+   transaction that sets `app.tenant_id`. Do not switch `DATABASE_URL` to a non-owner until that
+   application change has been implemented and tested.
 4. Adjust `infra/k8s/overlays/production` (hostnames, bucket, region, replicas).
 5. Run the `Deploy` workflow with the tag to deploy, or apply manually: migrate Job first, then
    `kubectl apply -k`, then `rollout status`.
@@ -162,7 +169,7 @@ Sizing defaults (production overlay): api 3 replicas (500m CPU / 1Gi, HPA 3-10 a
 web 3 replicas (250m / 512Mi, HPA 2-4), worker 1 replica (scheduled jobs are single-instance).
 PodDisruptionBudgets keep at least one api and one web pod during node drains.
 
-Row Level Security: the application database user owns the tables and therefore bypasses the
+Row Level Security: the application database user currently owns the tables and therefore bypasses the
 non-forced policies; tenancy is enforced in the API by the Prisma extension. Create additional
 read-only roles for BI or support (`GRANT SELECT`, then `SET app.tenant_id` per session) - those
 roles are constrained by RLS. Grant `auditsphere_admin` only to break-glass users.
@@ -233,8 +240,9 @@ multipart uploads after 7 days. The API credentials get only this policy:
 }
 ```
 
-Object keys are `<tenantId>/<ownerType>/<ownerId>/<documentId>/<fileName>`; the API only
-issues presigned URLs (5-minute TTL) for keys under the caller's tenant prefix. For MinIO use
+Object keys are opaque UUID-based names under the tenant prefix; the original filename and
+business association remain in PostgreSQL. The API only issues short-lived presigned URLs for
+objects the caller is authorised to access. For MinIO use
 `mc admin policy create` with the same statements.
 
 ## 9. Security hardening checklist

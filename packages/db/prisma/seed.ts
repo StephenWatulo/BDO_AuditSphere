@@ -70,6 +70,11 @@ if (!process.env.DATABASE_URL) {
 }
 
 const prisma = new PrismaClient();
+const seedScope = process.argv.includes('--demo') ? 'demo' : 'reference';
+
+if (seedScope === 'demo' && process.env.NODE_ENV === 'production') {
+  throw new Error('The synthetic demo seed is blocked when NODE_ENV=production. Use seed:reference and bootstrap:admin instead.');
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -106,7 +111,10 @@ const addMonths = (date: Date, months: number) => {
 };
 const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000);
 
-const PASSWORD = 'Admin123!';
+const PASSWORD = process.env.DEMO_PASSWORD?.trim() || 'Admin123!';
+if (process.env.DEMO_PASSWORD && (PASSWORD.length < 14 || !/[a-z]/.test(PASSWORD) || !/[A-Z]/.test(PASSWORD) || !/\d/.test(PASSWORD))) {
+  throw new Error('DEMO_PASSWORD must contain at least 14 characters with uppercase, lowercase, and a number');
+}
 
 // ---------------------------------------------------------------------------
 // Seed sections
@@ -1087,15 +1095,19 @@ interface PortfolioEngagementSeed {
 
 async function main() {
   const started = Date.now();
-  console.log('Seeding BDO AuditSphere ...');
+  console.log(`Seeding BDO AuditSphere (${seedScope}) ...`);
 
   const permissions = await seedPermissions();
+  const refIds = await seedFrameworks();
+  const templates = await seedWorkpaperTemplates();
+  if (seedScope === 'reference') {
+    console.log(`Reference seed complete: ${permissions.length} permissions, ${refIds.size} framework references, ${templates.size} workpaper templates.`);
+    return;
+  }
   const tenant = await seedTenant();
   const tenantId = tenant.id;
   const roles = await seedRoles(tenantId, permissions);
   const users = await seedUsers(tenantId, roles);
-  const refIds = await seedFrameworks();
-  const templates = await seedWorkpaperTemplates();
   const { categories, model } = await seedRiskConfig(tenantId);
   const chargeCodes = await seedChargeCodes(tenantId);
   const { entities, processes } = await seedUniverse(tenantId, users);

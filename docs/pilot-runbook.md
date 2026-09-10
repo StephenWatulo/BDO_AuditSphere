@@ -81,7 +81,7 @@ refuses to write those file names:
    pilot; leave it out.
 3. `packages\db\.env` was left out on purpose. In the OneDrive copy it points the seed
    script at the development database with the development password; if it existed
-   here, `pnpm db:seed` would read it **instead of** the root `.env` and fail to connect.
+   here, `pnpm db:seed:demo` would read it **instead of** the root `.env` and fail to connect.
 
 Create the data folders (no spaces in the path, outside OneDrive) and install the
 workspace packages, which are needed later for seeding:
@@ -188,7 +188,7 @@ seed everything and retire the demo accounts in section 9.
 
 ```powershell
 cd "D:\Internal Audit Pilot"
-pnpm db:seed
+pnpm db:seed:demo
 ```
 
 It reads `DATABASE_URL` from `D:\Internal Audit Pilot\.env` (localhost:5432, the container's
@@ -301,7 +301,7 @@ rebuild from the previous code, and restore the backup if migrations changed dat
 dc down -v
 Remove-Item -Recurse -Force D:\auditsphere-data\storage\*
 dc up -d
-pnpm db:seed
+pnpm db:seed:demo
 ```
 
 ## 11. Troubleshooting
@@ -320,7 +320,7 @@ pnpm db:seed
 | Reminders/escalations never fire | The worker is off: `dc ps` should show `worker` running; `dc logs worker` should say `starting worker`. Emails go to Mailpit (section 10) unless a real SMTP relay is configured. |
 | Everything disappears after a reboot | Docker Desktop not set to start at sign-in, or nobody signed in. Section 2. |
 | Machine went to sleep, users see timeouts | Section 2, step 3. |
-| `pnpm db:seed` cannot connect | `DATABASE_URL` in `.env` must use `localhost:5432` and the same password as `POSTGRES_PASSWORD`; `dc ps` must show postgres healthy. |
+| `pnpm db:seed:demo` cannot connect | `DATABASE_URL` in `.env` must use `localhost:5432` and the same password as `POSTGRES_PASSWORD`; `dc ps` must show postgres healthy. |
 
 Logs to attach when asking a developer for help: `dc logs --tail=500 api > api.log`,
 the same for `worker` and `web`, plus `dc ps`.
@@ -340,7 +340,7 @@ section 9) and is deliberately **not** done in this pilot:
 - **A server, not a laptop**: an always-on Windows or Linux server or an Azure VM, with
   the same Compose files, backups copied off the machine automatically, and a managed
   PostgreSQL as the next step.
-- **Retire the seeded demo data** entirely (fresh database, no `pnpm db:seed`; create
+- **Retire the seeded demo data** entirely (fresh database, no `pnpm db:seed:demo`; create
   the organisation and users through the API or a reduced seed instead).
 - Virus scanning of uploads, log shipping, restore drills and the penetration test
   listed in the checklist.

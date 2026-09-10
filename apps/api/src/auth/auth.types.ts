@@ -13,7 +13,9 @@ export interface AuthUser {
   status: UserStatus;
   authProvider: AuthProvider;
   mfaEnabled: boolean;
-  /** True for audit-function users who have not enrolled in MFA yet. */
+  /** True when a locally bootstrapped account must replace its temporary password. */
+  mustChangePassword: boolean;
+  /** True when deployment policy requires this local user to enrol MFA. */
   mfaRequiredToEnrol: boolean;
   roles: RoleKey[];
   permissions: string[];

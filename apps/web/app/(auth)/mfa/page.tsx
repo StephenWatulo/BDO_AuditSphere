@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, errorMessage } from '@/lib/api';
-import { ME_QUERY_KEY } from '@/lib/auth';
+import { homePathFor, ME_QUERY_KEY } from '@/lib/auth';
 import type { LoginResponse } from '@/lib/types';
 
 export default function MfaPage() {
@@ -43,7 +43,7 @@ export default function MfaPage() {
       const returnTo = sessionStorage.getItem('as.returnTo') || '/';
       sessionStorage.removeItem('as.mfaToken');
       sessionStorage.removeItem('as.returnTo');
-      router.replace(returnTo);
+      router.replace(res.user?.mustChangePassword || res.user?.mfaRequiredToEnrol ? homePathFor(res.user) : returnTo);
     } catch (err) {
       setError(errorMessage(err, 'Verification failed'));
       setCode('');

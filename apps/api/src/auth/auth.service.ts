@@ -376,10 +376,20 @@ export class AuthService {
     const ok = await verifyPassword(user.passwordHash, currentPassword);
     if (!ok) throw new BadRequestException('Current password is incorrect');
     if (currentPassword === newPassword) throw new BadRequestException('New password must differ from the current one');
+    const preferences = user.preferences && typeof user.preferences === 'object' && !Array.isArray(user.preferences)
+      ? { ...user.preferences }
+      : {};
+    delete preferences.mustChangePassword;
     await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash: await hashPassword(newPassword), failedLoginCount: 0, lockedUntil: null },
+      data: {
+        passwordHash: await hashPassword(newPassword),
+        failedLoginCount: 0,
+        lockedUntil: null,
+        preferences,
+      },
     });
+    this.userAccess.invalidate(userId);
     await this.revokeAllSessions(userId, currentRefreshToken);
     await this.audit.record({ action: 'auth.password_changed', targetType: 'User', targetId: userId });
   }

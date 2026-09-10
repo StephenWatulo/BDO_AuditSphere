@@ -57,13 +57,13 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
       TURBO_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -86,8 +86,8 @@ jobs:
       - name: Apply migrations
         run: pnpm db:deploy
 
-      - name: Seed demo data
-        run: pnpm db:seed
+      - name: Seed synthetic demo data
+        run: pnpm db:seed:demo
 
       # Fails when schema.prisma has changes that no migration captures (exit code 2).
       - name: Verify migrations are in sync with the schema
@@ -95,6 +95,12 @@ jobs:
 
       - name: Test
         run: pnpm -r run --if-present test
+
+      - name: Production dependency audit
+        run: pnpm audit --prod --audit-level high
+
+      - name: Validate deployable manifests
+        run: node scripts/verify-deployment.mjs
 
       # HTTP end-to-end suite against the migrated and seeded Postgres service.
       - name: API e2e
@@ -123,7 +129,7 @@ jobs:
             build_args: |
               NEXT_PUBLIC_API_URL=/api/v1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v3
 

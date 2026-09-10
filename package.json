@@ -17,11 +17,16 @@
     "test:e2e": "pnpm --filter @auditsphere/api test:e2e",
     "verify": "node scripts/verify-project.mjs",
     "verify:full": "node scripts/verify-project.mjs --full",
+    "verify:vm": "node scripts/verify-vm-deployment.mjs",
+    "verify:windows": "node scripts/verify-windows-deployment.mjs",
     "typecheck": "turbo run typecheck",
     "db:generate": "pnpm --filter @auditsphere/db generate",
     "db:migrate": "pnpm --filter @auditsphere/db migrate:dev",
     "db:deploy": "pnpm --filter @auditsphere/db migrate:deploy",
-    "db:seed": "pnpm --filter @auditsphere/db seed",
+    "db:seed": "pnpm --filter @auditsphere/db seed:reference",
+    "db:seed:reference": "pnpm --filter @auditsphere/db seed:reference",
+    "db:seed:demo": "pnpm --filter @auditsphere/db seed:demo",
+    "db:bootstrap-admin": "pnpm --filter @auditsphere/db bootstrap:admin",
     "db:local": "tsx scripts/local-postgres.ts",
     "db:local:stop": "tsx scripts/local-postgres.ts --stop",
     "db:local:status": "tsx scripts/local-postgres.ts --status",
@@ -40,5 +45,13 @@
     "tsx": "4.23.13",
     "turbo": "2.10.12",
     "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "deepmerge-ts": "8.0.0",
+      "exceljs>uuid": "11.1.1",
+      "multer": "2.3.0",
+      "postcss": "8.5.26"
+    }
   }
 }

@@ -11,13 +11,14 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
   configureApp(app);
-  setupSwagger(app);
   app.enableShutdownHooks();
 
   const config = app.get(AppConfigService);
+  if (config.api.swaggerEnabled) setupSwagger(app);
   await app.listen(config.api.port);
   const mode = config.jobs.enabled ? 'api+worker' : 'api';
-  app.get(Logger).log(`AuditSphere API (${mode}) listening on ${config.api.baseUrl}/api/v1 - docs at /api/docs`);
+  const docs = config.api.swaggerEnabled ? ' - docs at /api/docs' : '';
+  app.get(Logger).log(`AuditSphere API (${mode}) listening on ${config.api.baseUrl}/api/v1${docs}`);
 }
 
 bootstrap().catch((err) => {

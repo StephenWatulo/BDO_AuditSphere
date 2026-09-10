@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ClipboardCheck, Home, Inbox, LayoutDashboard, ShieldAlert } from 'lucide-react';
 import { BdoLogo } from '@/components/brand/bdo-logo';
 import { NotificationBell } from '@/components/shell/notification-bell';
@@ -26,9 +26,14 @@ const NAV = [
  */
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isLoading, error, refetch } = useCurrentUser();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
+  React.useEffect(() => {
+    if (user?.mustChangePassword) router.replace('/change-password');
+    else if (user?.mfaRequiredToEnrol) router.replace('/settings/security');
+  }, [router, user?.mfaRequiredToEnrol, user?.mustChangePassword]);
 
   let body: React.ReactNode;
   if (!mounted || (isLoading && !user)) {

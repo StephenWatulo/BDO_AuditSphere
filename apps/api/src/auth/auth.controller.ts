@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/
 import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
-import { CurrentUser, Public } from '../common/decorators';
+import { AllowDuringMfaEnrolment, AllowDuringPasswordChange, CurrentUser, Public } from '../common/decorators';
 import { AppConfigService } from '../config/app-config.service';
 import { AuthService } from './auth.service';
 import { AuthUser, RequestMeta } from './auth.types';
@@ -85,6 +85,8 @@ export class AuthController {
   }
 
   @Get('me')
+  @AllowDuringPasswordChange()
+  @AllowDuringMfaEnrolment()
   @ApiCookieAuth('as_access')
   @ApiOperation({ summary: 'Current user with roles and permissions' })
   async me(@CurrentUser() user: AuthUser) {
@@ -93,6 +95,7 @@ export class AuthController {
   }
 
   @Post('mfa/setup')
+  @AllowDuringMfaEnrolment()
   @ApiCookieAuth('as_access')
   @ApiOperation({ summary: 'Generate a TOTP secret (stored encrypted, not yet enabled)' })
   mfaSetup(@CurrentUser() user: AuthUser) {
@@ -100,6 +103,7 @@ export class AuthController {
   }
 
   @Post('mfa/enable')
+  @AllowDuringMfaEnrolment()
   @ApiCookieAuth('as_access')
   @ApiOperation({ summary: 'Confirm the TOTP secret and receive recovery codes' })
   mfaEnable(@CurrentUser() user: AuthUser, @Body() dto: MfaCodeDto) {
@@ -115,6 +119,8 @@ export class AuthController {
   }
 
   @Post('password/change')
+  @AllowDuringPasswordChange()
+  @AllowDuringMfaEnrolment()
   @HttpCode(204)
   @ApiCookieAuth('as_access')
   @ApiOperation({ summary: 'Change the local password; other sessions are revoked' })

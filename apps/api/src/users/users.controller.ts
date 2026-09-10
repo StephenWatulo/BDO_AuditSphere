@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RequirePermission } from '../common/decorators';
 import { CreateUserDto, SetRolesDto, UpdateUserDto, UserListQueryDto, UserOptionsQueryDto } from './users.dto';
@@ -47,6 +47,21 @@ export class UsersController {
   @RequirePermission('user:manage')
   setRoles(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetRolesDto) {
     return this.users.setRoles(id, dto);
+  }
+
+  @Post('users/:id/password/reset')
+  @RequirePermission('user:manage')
+  @ApiOperation({ summary: 'Reset another local user to a one-time temporary password and revoke sessions' })
+  resetPassword(@Param('id', ParseUUIDPipe) id: string) {
+    return this.users.resetPassword(id);
+  }
+
+  @Post('users/:id/mfa/reset')
+  @HttpCode(204)
+  @RequirePermission('user:manage')
+  @ApiOperation({ summary: 'Clear another local user\'s MFA enrolment and revoke sessions' })
+  resetMfa(@Param('id', ParseUUIDPipe) id: string) {
+    return this.users.resetMfa(id);
   }
 
   @Get('roles')

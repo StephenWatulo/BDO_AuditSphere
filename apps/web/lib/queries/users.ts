@@ -57,7 +57,7 @@ export interface CreateUserInput {
 }
 
 export function useCreateUser() {
-  return useApiMutation<User & { temporaryPassword?: string }, CreateUserInput>(
+  return useApiMutation<{ user: User; temporaryPassword?: string }, CreateUserInput>(
     (input) => api.post('/users', input),
     { invalidate: [userKeys.all], success: 'User invited' },
   );
@@ -74,5 +74,19 @@ export function useSetUserRoles(id: string) {
   return useApiMutation<User, { roles: RoleKey[] }>((input) => api.put(`/users/${id}/roles`, input), {
     invalidate: [userKeys.all],
     success: 'Roles updated',
+  });
+}
+
+export function useResetUserPassword(id: string) {
+  return useApiMutation<{ temporaryPassword: string }, void>(() => api.post(`/users/${id}/password/reset`), {
+    invalidate: [userKeys.all],
+    success: 'Temporary password created and sessions revoked',
+  });
+}
+
+export function useResetUserMfa(id: string) {
+  return useApiMutation<void, void>(() => api.post(`/users/${id}/mfa/reset`), {
+    invalidate: [userKeys.all],
+    success: 'MFA enrolment cleared and sessions revoked',
   });
 }

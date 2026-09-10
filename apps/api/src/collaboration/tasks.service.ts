@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from '@auditsphere/db';
 import { AuditTrailService } from '../audit-trail/audit-trail.service';
 import { AuthUser } from '../auth/auth.types';
+import { ObjectAccessService } from '../auth/object-access.service';
 import { paginate, parseSort } from '../common/pagination';
 import { compact, toDate, USER_SUMMARY_SELECT } from '../common/utils';
 import { NotificationService } from '../notifications/notification.service';
@@ -22,11 +23,13 @@ export class TasksService {
     private readonly ctx: TenantContext,
     private readonly audit: AuditTrailService,
     private readonly notifications: NotificationService,
+    private readonly access: ObjectAccessService,
   ) {}
 
   async list(query: TaskListQueryDto, user: AuthUser) {
     const db = this.prisma.scoped();
     const where: Prisma.TaskWhereInput = {
+      AND: [this.access.taskScope()],
       ...(query.mine ? { OR: [{ assigneeId: user.id }, { createdById: user.id, assigneeId: null }] } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.engagementId ? { engagementId: query.engagementId } : {}),
@@ -43,11 +46,17 @@ export class TasksService {
     );
   }
 
-  async create(dto: CreateTaskDto) {
+  async create(dto: CreateTaskDto, user: AuthUser) {
     const db = this.prisma.scoped();
     if (dto.engagementId) {
-      const e = await db.engagement.findFirst({ where: { id: dto.engagementId, deletedAt: null } });
-      if (!e) throw new BadRequestException('Engagement not found');
+      await this.access.assertEngagement(dto.engagementId);
+    }
+    if (dto.targetType || dto.targetId) {
+      if (!dto.targetType || !dto.targetId) throw new BadRequestException('targetType and targetId must be supplied together');
+      await this.access.assertCommentTarget(dto.targetType, dto.targetId);
+    }
+    if (this.access.isPortalScoped && dto.assigneeId && dto.assigneeId !== user.id) {
+      throw new ForbiddenException('Portal users cannot assign tasks to other users');
     }
     if (dto.assigneeId) {
       const u = await db.user.findFirst({ where: { id: dto.assigneeId, deletedAt: null } });
@@ -83,10 +92,24 @@ export class TasksService {
 
   async update(id: string, dto: UpdateTaskDto, user: AuthUser) {
     const db = this.prisma.scoped();
-    const before = await db.task.findFirst({ where: { id } });
+    const before = await db.task.findFirst({ where: { id, AND: [this.access.taskScope()] } });
     if (!before) throw new NotFoundException('Task not found');
     const isParty = before.assigneeId === user.id || before.createdById === user.id;
     if (!isParty && !user.permissions.includes('engagement:manage')) throw new ForbiddenException('Only the assignee, creator or an engagement manager can edit this task');
+    if (this.access.isPortalScoped) {
+      const protectedFields = ['engagementId', 'targetType', 'targetId', 'assigneeId', 'title'] as const;
+      if (protectedFields.some((field) => dto[field] !== undefined)) {
+        throw new ForbiddenException('Portal users may update only task status, description, due date, or priority');
+      }
+    } else {
+      if (dto.engagementId) await this.access.assertEngagement(dto.engagementId);
+      if (dto.targetType || dto.targetId) {
+        const targetType = dto.targetType ?? before.targetType;
+        const targetId = dto.targetId ?? before.targetId;
+        if (!targetType || !targetId) throw new BadRequestException('targetType and targetId must be supplied together');
+        await this.access.assertCommentTarget(targetType, targetId);
+      }
+    }
     const done = dto.status === 'DONE';
     const after = await db.task.update({
       where: { id },

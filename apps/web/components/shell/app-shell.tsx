@@ -93,11 +93,17 @@ function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: (
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading } = useCurrentUser();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (user?.mustChangePassword) router.replace('/change-password');
+    else if (user?.mfaRequiredToEnrol && pathname !== '/settings/security') router.replace('/settings/security');
+  }, [pathname, router, user?.mfaRequiredToEnrol, user?.mustChangePassword]);
 
   React.useEffect(() => {
     try {

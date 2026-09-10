@@ -12,7 +12,7 @@ infra/
     web.Dockerfile        Next.js standalone image
     docker-compose.yml    postgres, minio (+init), mailpit, api, worker, web
   k8s/
-    base/                 namespace, configmap, secret (placeholders), deployments, services,
+    base/                 namespace, configmap, excluded secret example, deployments, services,
                           ingress, HPA, PDB, migrate Job
     overlays/production/  replicas, resources, hostnames, pinned image tags
 ```
@@ -39,7 +39,7 @@ Seed the demo tenant once the API is healthy (the seed runs from your machine ag
 container database, so `DATABASE_URL` in `.env` must point at `localhost:5432`):
 
 ```bash
-pnpm db:seed
+pnpm db:seed:demo
 ```
 
 Stop and remove everything, including volumes: `docker compose -f infra/docker/docker-compose.yml --env-file .env down -v`.
@@ -70,7 +70,8 @@ Notes:
 Prerequisites: a cluster with ingress-nginx, metrics-server (for the HPAs) and optionally
 cert-manager; managed PostgreSQL 16 and an S3-compatible bucket; `kubectl` 1.27+.
 
-1. Create the namespace and real secrets (never apply `base/secret.yaml` values as-is):
+1. Create the namespace and real secrets. `base/secret.yaml` is an excluded example whose
+   object names end in `-example`; it is never part of a Kustomize build:
 
    ```bash
    kubectl create namespace auditsphere
@@ -80,7 +81,8 @@ cert-manager; managed PostgreSQL 16 and an S3-compatible bucket; `kubectl` 1.27+
    kubectl -n auditsphere create secret tls auditsphere-tls --cert=fullchain.pem --key=privkey.pem   # or cert-manager
    ```
 
-   Keys expected in `auditsphere-secrets`: `DATABASE_URL`, `JWT_ACCESS_SECRET`,
+   Keys expected in `auditsphere-secrets`: `DATABASE_URL` (currently the schema owner; keep it
+   private), `MIGRATION_DATABASE_URL` (may be the same value and is used by the migration Job), `JWT_ACCESS_SECRET`,
    `JWT_REFRESH_SECRET`, `ENCRYPTION_KEY`, `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`,
    `ENTRA_CLIENT_SECRET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `AI_API_KEY`, `SMTP_USER`, `SMTP_PASS`.
 

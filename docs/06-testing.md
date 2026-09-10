@@ -7,7 +7,7 @@
 | Unit: domain rules (roles, permissions, workflows, risk scoring, ageing) | `packages/shared/src/*.test.ts` | Vitest | no |
 | Unit: API services and guards | `apps/api/src/**/*.spec.ts` | Jest | no (Prisma mocked) |
 | End-to-end: API over HTTP | `apps/api/test/**/*.e2e-spec.ts` | Jest + supertest | yes, migrated and seeded |
-| Seed smoke tests | `pnpm db:seed` and the checks below | tsx / node | yes |
+| Seed smoke tests | `pnpm db:seed:demo` and the checks below | tsx / node | yes |
 | Web | `apps/web` (lint + typecheck; component tests as they are added) | ESLint, tsc | no |
 
 ## Running tests
@@ -42,7 +42,7 @@ In another terminal, migrate and seed only that disposable test database:
 $env:E2E_DATABASE_URL = 'postgresql://auditsphere:auditsphere@localhost:5433/auditsphere_test?schema=public'
 $env:DATABASE_URL = $env:E2E_DATABASE_URL
 pnpm db:deploy
-pnpm db:seed
+pnpm db:seed:demo
 pnpm verify:full
 ```
 
@@ -62,7 +62,7 @@ what they need under a unique reference and assert on it. Mutations should use a
 engagement created by the test.
 
 CI (`.github/workflows/ci.yml`) provisions a `postgres:16` service with `auditsphere_test_ci`, runs `pnpm db:deploy`,
-`pnpm db:seed`, checks the schema is in sync with the migration history, runs `pnpm -r test`,
+`pnpm db:seed:demo`, checks the schema is in sync with the migration history, runs `pnpm -r test`,
 then runs the API e2e suite (`pnpm --filter @auditsphere/api test:e2e`) against the same
 database before building.
 
@@ -77,10 +77,10 @@ acceptance checks against a permitted demo instance; see their `SMOKE_*` environ
 
 ### Seed-based smoke tests
 
-After `pnpm db:seed` the following should hold. They double as a manual acceptance checklist for
+After `pnpm db:seed:demo` the following should hold. They double as a manual acceptance checklist for
 a fresh environment.
 
-1. Re-running `pnpm db:seed` completes and prints the same counts (idempotent upserts).
+1. Re-running `pnpm db:seed:demo` completes and prints the same counts (idempotent upserts).
 2. `pnpm db:status` reports "Database schema is up to date!".
 3. Login `POST /api/v1/auth/login` with `admin@bdo-ea.com` / `Admin123!` returns the user with
    `roles: ["GLOBAL_ADMIN"]` and every permission key.

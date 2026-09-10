@@ -10,7 +10,7 @@ describe('Private AI context cannot be exposed through shared records', () => {
   };
   const prisma = { scoped: () => db };
   const evidence = new EvidenceService(prisma as never, {} as never, {} as never);
-  const requests = new RequestsService(prisma as never, {} as never, {} as never, {} as never, {} as never, { register: jest.fn() } as never);
+  const requests = new RequestsService(prisma as never, {} as never, {} as never, {} as never, {} as never, { assertRequest: jest.fn(), requestScope: jest.fn().mockReturnValue({}), documentScope: jest.fn().mockResolvedValue({}), assertDocument: jest.fn() } as never, { register: jest.fn() } as never);
 
   it('blocks attaching private context when creating evidence', async () => {
     await expect(evidence.create({ engagementId: 'engagement', documentId: 'private-doc', description: 'Test' })).rejects.toThrow('Private AI context');

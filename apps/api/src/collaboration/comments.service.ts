@@ -3,6 +3,7 @@ import { Prisma } from '@auditsphere/db';
 import { AUDIT_FUNCTION_ROLES } from '@auditsphere/shared';
 import { AuditTrailService } from '../audit-trail/audit-trail.service';
 import { AuthUser } from '../auth/auth.types';
+import { ObjectAccessService } from '../auth/object-access.service';
 import { paginate } from '../common/pagination';
 import { USER_SUMMARY_SELECT } from '../common/utils';
 import { NotificationService } from '../notifications/notification.service';
@@ -23,9 +24,11 @@ export class CommentsService {
     private readonly ctx: TenantContext,
     private readonly audit: AuditTrailService,
     private readonly notifications: NotificationService,
+    private readonly access: ObjectAccessService,
   ) {}
 
   async list(query: CommentListQueryDto, user: AuthUser) {
+    await this.access.assertCommentTarget(query.targetType, query.targetId);
     const db = this.prisma.scoped();
     const where: Prisma.CommentWhereInput = {
       targetType: query.targetType,
@@ -41,8 +44,12 @@ export class CommentsService {
   }
 
   async create(dto: CreateCommentDto, user: AuthUser) {
+    await this.access.assertCommentTarget(dto.targetType, dto.targetId);
     const db = this.prisma.scoped();
     const internal = isAuditFunction(user) ? (dto.isInternal ?? true) : false;
+    if (this.access.isPortalScoped && dto.mentions?.some((id) => id !== user.id)) {
+      throw new BadRequestException('Portal comments cannot mention other users');
+    }
     if (dto.parentId) {
       const parent = await db.comment.findFirst({ where: { id: dto.parentId, targetType: dto.targetType, targetId: dto.targetId, deletedAt: null } });
       if (!parent) throw new BadRequestException('Parent comment not found on this target');

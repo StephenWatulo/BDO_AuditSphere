@@ -3,6 +3,7 @@ import { Finding, FindingStatus, Prisma } from '@auditsphere/db';
 import { AGEING_BUCKETS, ageingBucket, daysOverdue, FINDING_WORKFLOW } from '@auditsphere/shared';
 import { AuditTrailService } from '../audit-trail/audit-trail.service';
 import { AuthUser } from '../auth/auth.types';
+import { ObjectAccessService } from '../auth/object-access.service';
 import { TransitionDto } from '../common/dto/transition.dto';
 import { paginate, parseSort } from '../common/pagination';
 import { compact, isBlank, pad, toDate, USER_SUMMARY_SELECT } from '../common/utils';
@@ -89,6 +90,7 @@ export class FindingsService {
     private readonly audit: AuditTrailService,
     private readonly workflow: WorkflowService,
     private readonly notifications: NotificationService,
+    private readonly access: ObjectAccessService,
     registry: GuardRegistry,
   ) {
     const m = FINDING_WORKFLOW.name;
@@ -139,7 +141,9 @@ export class FindingsService {
   async list(query: FindingListQueryDto, user: AuthUser) {
     const db = this.prisma.scoped();
     const now = new Date();
-    const where = buildFindingsWhere(query, user, now);
+    const where: Prisma.FindingWhereInput = {
+      AND: [buildFindingsWhere(query, user, now), this.access.findingScope()],
+    };
     const orderBy = parseSort(query.sort, ['reference', 'title', 'severity', 'status', 'dueDate', 'createdAt', 'agreedAt', 'closedAt'] as const, { createdAt: 'desc' });
     const page = await paginate(
       query,
@@ -150,6 +154,8 @@ export class FindingsService {
   }
 
   async get(id: string, user: AuthUser) {
+    await this.access.assertFinding(id);
+    const documentScope = await this.access.documentScope();
     const f = await this.prisma.scoped().finding.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -167,7 +173,16 @@ export class FindingsService {
     });
     if (!f) throw new NotFoundException('Finding not found');
     const [documents, availableActions] = await Promise.all([
-      this.prisma.scoped().document.findMany({ where: { ownerType: 'Finding', ownerId: id, deletedAt: null }, select: { id: true, fileName: true, mimeType: true, sizeBytes: true, uploadedAt: true, classification: true } }),
+      this.prisma.scoped().document.findMany({
+        where: {
+          ownerType: 'Finding',
+          ownerId: id,
+          deletedAt: null,
+          ...(this.ctx.hasPermission('document:restricted') ? {} : { classification: { not: 'RESTRICTED' as const } }),
+          AND: [documentScope],
+        },
+        select: { id: true, fileName: true, mimeType: true, sizeBytes: true, uploadedAt: true, classification: true },
+      }),
       this.workflow.availableActions(FINDING_WORKFLOW, f.status, { userId: user.id, permissions: user.permissions }, f, (t) => this.extraGuardsFor(t.action)),
     ]);
     const { _count, ...rest } = f;
@@ -175,6 +190,7 @@ export class FindingsService {
   }
 
   async assertFinding(id: string) {
+    await this.access.assertFinding(id);
     const f = await this.prisma.scoped().finding.findFirst({ where: { id, deletedAt: null } });
     if (!f) throw new NotFoundException('Finding not found');
     return f;
@@ -448,6 +464,7 @@ export class FindingsService {
     const db = this.prisma.scoped();
     const before = await db.recommendation.findFirst({ where: { id }, include: { finding: { select: { id: true, status: true, actionOwnerId: true, reference: true, raisedById: true } } } });
     if (!before) throw new NotFoundException('Recommendation not found');
+    await this.access.assertFinding(before.finding.id);
     const canManage = user.permissions.includes('finding:manage');
     if (!canManage) {
       const isOwner = before.ownerId === user.id || before.finding.actionOwnerId === user.id || user.permissions.includes('finding:respond');
@@ -493,7 +510,12 @@ export class FindingsService {
   async ageing(engagementId?: string, entityId?: string) {
     const db = this.prisma.scoped();
     const now = new Date();
-    const base: Prisma.FindingWhereInput = { deletedAt: null, ...(engagementId ? { engagementId } : {}), ...(entityId ? { entityId } : {}) };
+    const base: Prisma.FindingWhereInput = {
+      deletedAt: null,
+      ...(engagementId ? { engagementId } : {}),
+      ...(entityId ? { entityId } : {}),
+      AND: [this.access.findingScope()],
+    };
     const [open, bySeverityRows, byStatusRows] = await Promise.all([
       db.finding.findMany({ where: { ...base, status: { in: ACTIONABLE_STATUSES } }, select: { dueDate: true, severity: true, status: true } }),
       db.finding.groupBy({ by: ['severity'], where: { ...base, status: { in: OPEN_STATUSES } }, _count: { _all: true } }),

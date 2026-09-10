@@ -10,9 +10,10 @@ export interface AppConfig {
   isProduction: boolean;
   logLevel: string;
   databaseUrl: string;
-  api: { port: number; baseUrl: string; webBaseUrl: string; corsOrigins: string[] };
+  api: { port: number; baseUrl: string; webBaseUrl: string; corsOrigins: string[]; swaggerEnabled: boolean };
   jwt: { accessSecret: string; refreshSecret: string; accessTtlMs: number; refreshTtlMs: number };
   cookies: { secure: boolean };
+  auth: { mfaEnforcement: 'off' | 'audit' | 'all' };
   /** 32-byte key used for AES-256-GCM field encryption. */
   encryptionKey: Buffer;
   jobs: { enabled: boolean };
@@ -28,6 +29,14 @@ export interface AppConfig {
       secretKey: string;
       forcePathStyle: boolean;
     };
+  };
+  malwareScan: {
+    required: boolean;
+    scanner: 'clamav' | 'defender';
+    host: string;
+    port: number;
+    timeoutMs: number;
+    defenderPath: string;
   };
   ai: { enabled: boolean; baseUrl: string; apiKey: string; model: string };
   smtp: { enabled: boolean; host: string; port: number; user: string; pass: string; from: string };
@@ -46,6 +55,7 @@ export function buildConfig(env: Env): AppConfig {
       corsOrigins: env.CORS_ORIGINS.split(',')
         .map((s) => s.trim())
         .filter(Boolean),
+      swaggerEnabled: env.SWAGGER_ENABLED,
     },
     jwt: {
       accessSecret: env.JWT_ACCESS_SECRET,
@@ -54,6 +64,7 @@ export function buildConfig(env: Env): AppConfig {
       refreshTtlMs: parseDuration(env.JWT_REFRESH_TTL),
     },
     cookies: { secure: env.COOKIE_SECURE },
+    auth: { mfaEnforcement: env.MFA_ENFORCEMENT },
     encryptionKey: deriveKey(env.ENCRYPTION_KEY),
     jobs: { enabled: env.RUN_JOBS || process.argv.includes('--worker') },
     entra: {
@@ -74,6 +85,14 @@ export function buildConfig(env: Env): AppConfig {
         secretKey: env.S3_SECRET_KEY,
         forcePathStyle: env.S3_FORCE_PATH_STYLE,
       },
+    },
+    malwareScan: {
+      required: env.MALWARE_SCAN_REQUIRED,
+      scanner: env.MALWARE_SCANNER,
+      host: env.CLAMAV_HOST,
+      port: env.CLAMAV_PORT,
+      timeoutMs: env.CLAMAV_TIMEOUT_MS,
+      defenderPath: env.DEFENDER_MPCMDRUN_PATH,
     },
     ai: {
       enabled: env.AI_ENABLED,
@@ -130,6 +149,9 @@ export class AppConfigService {
   get cookies() {
     return this.config.cookies;
   }
+  get auth() {
+    return this.config.auth;
+  }
   get encryptionKey() {
     return this.config.encryptionKey;
   }
@@ -141,6 +163,9 @@ export class AppConfigService {
   }
   get storage() {
     return this.config.storage;
+  }
+  get malwareScan() {
+    return this.config.malwareScan;
   }
   get ai() {
     return this.config.ai;

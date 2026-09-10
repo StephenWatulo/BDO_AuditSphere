@@ -18,9 +18,9 @@ export async function verifyPassword(hashed: string | null | undefined, password
 }
 
 export const PASSWORD_RULES = {
-  minLength: 8,
+  minLength: 12,
   maxLength: 128,
-  /** At least one letter and one digit. */
-  pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/,
-  message: 'Password must be at least 8 characters and contain a letter and a digit',
+  /** Long passphrase plus mixed case and a digit; symbols remain optional. */
+  pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/,
+  message: 'Password must be at least 12 characters and contain uppercase, lowercase, and a digit',
 };
