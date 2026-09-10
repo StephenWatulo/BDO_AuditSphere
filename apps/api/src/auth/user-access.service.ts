@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, RoleKey } from '@auditsphere/db';
 import { AUDIT_FUNCTION_ROLES, ROLE_PERMISSIONS } from '@auditsphere/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppConfigService } from '../config/app-config.service';
 import { AuthUser } from './auth.types';
 
 const CACHE_TTL_MS = 60_000;
@@ -22,13 +23,16 @@ export type UserWithAccess = Prisma.UserGetPayload<{ include: typeof USER_ACCESS
  * `@auditsphere/shared` unioned with any `RolePermission` rows stored for the
  * tenant (so administrators can extend roles later without a release).
  */
-export function buildAuthUser(user: UserWithAccess): AuthUser {
+export function buildAuthUser(user: UserWithAccess, mfaEnforcement: 'off' | 'audit' | 'all' = 'audit'): AuthUser {
   const roles = Array.from(new Set(user.roles.map((ur) => ur.role.key))) as RoleKey[];
   const permissions = new Set<string>();
   for (const r of roles) for (const p of ROLE_PERMISSIONS[r] ?? []) permissions.add(p);
   for (const ur of user.roles) for (const rp of ur.role.permissions) permissions.add(rp.permission.key);
 
   const isAuditFunction = roles.some((r) => AUDIT_FUNCTION_ROLES.includes(r));
+  const preferences = user.preferences && typeof user.preferences === 'object' && !Array.isArray(user.preferences)
+    ? user.preferences
+    : {};
   return {
     id: user.id,
     tenantId: user.tenantId,
@@ -41,7 +45,11 @@ export function buildAuthUser(user: UserWithAccess): AuthUser {
     status: user.status,
     authProvider: user.authProvider,
     mfaEnabled: user.mfaEnabled,
-    mfaRequiredToEnrol: isAuditFunction && !user.mfaEnabled && user.authProvider === 'LOCAL',
+    mustChangePassword: preferences.mustChangePassword === true,
+    mfaRequiredToEnrol:
+      user.authProvider === 'LOCAL' &&
+      !user.mfaEnabled &&
+      (mfaEnforcement === 'all' || (mfaEnforcement === 'audit' && isAuditFunction)),
     roles,
     permissions: Array.from(permissions).sort(),
     tenant: user.tenant,
@@ -58,7 +66,10 @@ export function toPublicUser(user: AuthUser) {
 export class UserAccessService {
   private readonly cache = new Map<string, { expires: number; value: AuthUser }>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: AppConfigService,
+  ) {}
 
   async load(userId: string, opts: { fresh?: boolean } = {}): Promise<AuthUser | null> {
     const now = Date.now();
@@ -74,7 +85,7 @@ export class UserAccessService {
       this.cache.delete(userId);
       return null;
     }
-    const value = buildAuthUser(user);
+    const value = buildAuthUser(user, this.config.auth.mfaEnforcement);
     this.cache.set(userId, { expires: now + CACHE_TTL_MS, value });
     return value;
   }

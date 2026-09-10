@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Copy, KeyRound, MoreHorizontal, ShieldCheck, UserPlus, UserX, UserCheck, Users } from 'lucide-react';
+import { Copy, KeyRound, MoreHorizontal, RotateCcwKey, ShieldCheck, ShieldOff, UserPlus, UserX, UserCheck, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { ROLE_KEYS, ROLE_LABELS, type RoleKey } from '@auditsphere/shared';
 import { PageHeader } from '@/components/shell/page-header';
@@ -21,7 +21,16 @@ import { UserAvatar } from '@/components/ui/avatar';
 import { GenericStatusBadge } from '@/components/domain/badges';
 import { useCurrentUser } from '@/lib/auth';
 import { useListParams } from '@/lib/hooks/use-list-params';
-import { useCreateUser, useRoles, useSetUserRoles, useUpdateUser, useUsers, type CreateUserInput } from '@/lib/queries/users';
+import {
+  useCreateUser,
+  useResetUserMfa,
+  useResetUserPassword,
+  useRoles,
+  useSetUserRoles,
+  useUpdateUser,
+  useUsers,
+  type CreateUserInput,
+} from '@/lib/queries/users';
 import { fmtDateTime, fmtRelative } from '@/lib/format';
 import { copyToClipboard } from '@/lib/utils';
 import type { User, UserStatus } from '@/lib/types';
@@ -61,7 +70,7 @@ function InviteDialog({ open, onOpenChange, onInvited }: { open: boolean; onOpen
   React.useEffect(() => { if (!touchedName) setV((s) => ({ ...s, displayName: [s.firstName, s.lastName].filter(Boolean).join(' ') })); }, [v.firstName, v.lastName, touchedName]);
 
   const emailOk = EMAIL_RE.test(v.email.trim());
-  const pwOk = !v.password || v.password.length >= 10;
+  const pwOk = !v.password || v.password.length >= 12;
   const valid = emailOk && v.displayName.trim().length >= 2 && v.roles.length > 0 && pwOk;
 
   return (
@@ -75,7 +84,7 @@ function InviteDialog({ open, onOpenChange, onInvited }: { open: boolean; onOpen
             <div className="space-y-1.5"><Label htmlFor="inv-last">Last name</Label><Input id="inv-last" value={v.lastName} onChange={(e) => setV({ ...v, lastName: e.target.value })} /></div>
             <div className="space-y-1.5"><Label htmlFor="inv-display" required>Display name</Label><Input id="inv-display" value={v.displayName} onChange={(e) => { setTouchedName(true); setV({ ...v, displayName: e.target.value }); }} /></div>
             <div className="space-y-1.5"><Label htmlFor="inv-title">Job title</Label><Input id="inv-title" value={v.jobTitle} onChange={(e) => setV({ ...v, jobTitle: e.target.value })} placeholder="e.g. Senior Auditor" /></div>
-            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="inv-pw">Password (optional)</Label><Input id="inv-pw" type="password" autoComplete="new-password" value={v.password} onChange={(e) => setV({ ...v, password: e.target.value })} placeholder="Leave blank to generate a temporary password" aria-invalid={!pwOk} />{!pwOk ? <p className="text-xs text-destructive">Passwords must be at least 10 characters.</p> : null}</div>
+            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="inv-pw">Password (optional)</Label><Input id="inv-pw" type="password" autoComplete="new-password" value={v.password} onChange={(e) => setV({ ...v, password: e.target.value })} placeholder="Leave blank to generate a temporary password" aria-invalid={!pwOk} />{!pwOk ? <p className="text-xs text-destructive">Passwords must be at least 12 characters.</p> : null}</div>
           </div>
           <div className="space-y-1.5">
             <Label required>Roles</Label>
@@ -89,7 +98,7 @@ function InviteDialog({ open, onOpenChange, onInvited }: { open: boolean; onOpen
             const input: CreateUserInput = { email: v.email.trim().toLowerCase(), displayName: v.displayName.trim(), firstName: v.firstName.trim() || undefined, lastName: v.lastName.trim() || undefined, jobTitle: v.jobTitle.trim() || undefined, roles: v.roles, password: v.password || undefined };
             const created = await create.mutateAsync(input);
             onOpenChange(false);
-            onInvited(created, created.temporaryPassword);
+            onInvited(created.user, created.temporaryPassword);
           }}><UserPlus /> Invite</Button>
         </DialogFooter>
       </DialogContent>
@@ -162,6 +171,40 @@ function StatusConfirm({ target, onClose }: { target: { user: User; status: User
   );
 }
 
+function PasswordResetConfirm({ user, onClose, onReset }: { user: User | null; onClose: () => void; onReset: (password: string) => void }) {
+  const reset = useResetUserPassword(user?.id ?? '');
+  return (
+    <ConfirmDialog
+      open={!!user}
+      onOpenChange={(o) => !o && onClose()}
+      title={`Reset password for ${user?.displayName ?? 'this user'}?`}
+      description="Their current sessions will be revoked. A one-time temporary password will be shown once and must be shared through an approved secure channel."
+      confirmLabel="Reset password"
+      loading={reset.isPending}
+      onConfirm={async () => {
+        const result = await reset.mutateAsync(undefined);
+        onReset(result.temporaryPassword);
+      }}
+    />
+  );
+}
+
+function MfaResetConfirm({ user, onClose }: { user: User | null; onClose: () => void }) {
+  const reset = useResetUserMfa(user?.id ?? '');
+  return (
+    <ConfirmDialog
+      open={!!user}
+      onOpenChange={(o) => !o && onClose()}
+      title={`Reset MFA for ${user?.displayName ?? 'this user'}?`}
+      description="Their current sessions will be revoked. At the next sign-in, production policy will require them to enrol a new authenticator and save new recovery codes."
+      confirmLabel="Reset MFA"
+      destructive
+      loading={reset.isPending}
+      onConfirm={async () => { await reset.mutateAsync(undefined); onClose(); }}
+    />
+  );
+}
+
 function UsersTable() {
   const { user: me } = useCurrentUser();
   const { state, set, sorting, setSorting, reset } = useListParams(DEFAULTS);
@@ -170,6 +213,8 @@ function UsersTable() {
   const [tempPw, setTempPw] = React.useState<{ user: User; password: string } | null>(null);
   const [rolesFor, setRolesFor] = React.useState<User | null>(null);
   const [statusTarget, setStatusTarget] = React.useState<{ user: User; status: UserStatus } | null>(null);
+  const [passwordResetTarget, setPasswordResetTarget] = React.useState<User | null>(null);
+  const [mfaResetTarget, setMfaResetTarget] = React.useState<User | null>(null);
 
   const columns = React.useMemo<ColumnDef<User, unknown>[]>(
     () => [
@@ -207,6 +252,12 @@ function UsersTable() {
                 <DropdownMenuLabel>{u.displayName}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setRolesFor(u)}><ShieldCheck /> Edit roles</DropdownMenuItem>
+                {u.authProvider === 'LOCAL' ? (
+                  <>
+                    <DropdownMenuItem disabled={isMe} onSelect={() => setPasswordResetTarget(u)}><RotateCcwKey /> Reset password</DropdownMenuItem>
+                    <DropdownMenuItem disabled={isMe || !u.mfaEnabled} onSelect={() => setMfaResetTarget(u)}><ShieldOff /> Reset MFA</DropdownMenuItem>
+                  </>
+                ) : null}
                 {u.status === 'ACTIVE' || u.status === 'INVITED' ? (
                   <>
                     <DropdownMenuItem disabled={isMe} onSelect={() => setStatusTarget({ user: u, status: 'SUSPENDED' })}><UserX /> Suspend</DropdownMenuItem>
@@ -266,6 +317,15 @@ function UsersTable() {
       <TemporaryPasswordDialog state={tempPw} onClose={() => setTempPw(null)} />
       <RolesDialog user={rolesFor} onClose={() => setRolesFor(null)} />
       <StatusConfirm target={statusTarget} onClose={() => setStatusTarget(null)} />
+      <PasswordResetConfirm
+        user={passwordResetTarget}
+        onClose={() => setPasswordResetTarget(null)}
+        onReset={(password) => {
+          if (passwordResetTarget) setTempPw({ user: passwordResetTarget, password });
+          setPasswordResetTarget(null);
+        }}
+      />
+      <MfaResetConfirm user={mfaResetTarget} onClose={() => setMfaResetTarget(null)} />
     </>
   );
 }

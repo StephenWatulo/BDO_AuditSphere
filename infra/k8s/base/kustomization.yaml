@@ -10,7 +10,6 @@ commonLabels:
 resources:
   - namespace.yaml
   - configmap.yaml
-  - secret.yaml
   - api-deployment.yaml
   - worker-deployment.yaml
   - web-deployment.yaml

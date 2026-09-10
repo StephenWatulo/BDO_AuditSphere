@@ -16,6 +16,7 @@
     "noImplicitAny": true,
     "useDefineForClassFields": false,
     "incremental": true,
+    "isolatedModules": true,
     "tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo",
     "types": ["node", "jest", "multer"]
   },

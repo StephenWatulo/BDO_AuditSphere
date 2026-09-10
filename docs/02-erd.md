@@ -341,4 +341,5 @@ Risk --RiskControl--> Control --AuditProgramStep--> Procedure --Workpaper--> Evi
      \--Finding.riskId--> Finding --Recommendation--> Recommendation
 ```
 
-Exposed through `/api/v1/graph/risk/:id` in Phase 1 and GraphQL in Phase 3.
+These relationships are queried through the implemented REST domain endpoints. A dedicated
+GraphQL knowledge-graph endpoint is a roadmap item and is not currently implemented.

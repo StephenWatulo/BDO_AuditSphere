@@ -4,7 +4,7 @@ describe('document visibility and validation', () => {
   const db = { document: { count: jest.fn(async () => 0), findMany: jest.fn(async () => []) } };
   const prisma = { scoped: () => db };
   const ctx = { hasPermission: jest.fn(() => false) };
-  const service = new DocumentsService(prisma as never, ctx as never, {} as never, {} as never);
+  const service = new DocumentsService(prisma as never, ctx as never, {} as never, {} as never, { assertDocument: jest.fn(), assertUploadOwner: jest.fn(), documentScope: jest.fn().mockResolvedValue({}) } as never, { scan: jest.fn().mockResolvedValue({ status: 'skipped' }) } as never);
 
   beforeEach(() => jest.clearAllMocks());
 

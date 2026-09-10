@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Document, DocumentClassification, Prisma } from '@auditsphere/db';
 import { v4 as uuidv4 } from 'uuid';
 import { AuditTrailService } from '../audit-trail/audit-trail.service';
+import { ObjectAccessService } from '../auth/object-access.service';
 import { sha256 } from '../common/crypto';
 import { paginate, parseSort } from '../common/pagination';
 import { USER_SUMMARY_SELECT } from '../common/utils';
@@ -9,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContext } from '../tenancy/tenant-context';
 import { CompleteUploadDto, DocumentListQueryDto, DocumentOwnerType, MAX_DOCUMENT_BYTES, PresignUploadDto } from './documents.dto';
+import { MalwareScannerService } from './malware-scanner.service';
 
 const DOC_INCLUDE = { uploadedBy: { select: USER_SUMMARY_SELECT } } satisfies Prisma.DocumentInclude;
 
@@ -24,6 +26,8 @@ export class DocumentsService {
     private readonly ctx: TenantContext,
     private readonly audit: AuditTrailService,
     private readonly storage: StorageService,
+    private readonly access: ObjectAccessService,
+    private readonly scanner: MalwareScannerService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -41,46 +45,17 @@ export class DocumentsService {
   }
 
   private async assertOwner(ownerType: DocumentOwnerType, ownerId: string) {
-    const db = this.prisma.scoped();
-    let exists = 1;
-    switch (ownerType) {
-      case 'AiContext':
-        if (ownerId !== this.ctx.userId || !this.ctx.hasPermission('ai:use')) throw new ForbiddenException('AI context uploads must belong to the current user.');
-        break;
-      case 'Engagement':
-        exists = await db.engagement.count({ where: { id: ownerId, deletedAt: null } });
-        break;
-      case 'Workpaper':
-        exists = await db.workpaper.count({ where: { id: ownerId, deletedAt: null } });
-        break;
-      case 'Finding':
-        exists = await db.finding.count({ where: { id: ownerId, deletedAt: null } });
-        break;
-      case 'Recommendation':
-        exists = await db.recommendation.count({ where: { id: ownerId } });
-        break;
-      case 'DocumentRequest':
-        exists = await db.documentRequest.count({ where: { id: ownerId } });
-        break;
-      case 'Evidence':
-        exists = await db.evidence.count({ where: { id: ownerId } });
-        break;
-      case 'LibraryItem':
-        exists = await db.libraryItem.count({ where: { id: ownerId } });
-        break;
-      default:
-        exists = 1;
-    }
-    if (!exists) throw new BadRequestException(`${ownerType} ${ownerId} not found`);
+    await this.access.assertUploadOwner(ownerType, ownerId);
   }
 
-  async assertDocument(id: string, opts: { requireUploaded?: boolean } = {}): Promise<Document> {
+  async assertDocument(id: string, opts: { requireUploaded?: boolean; allowQuarantined?: boolean } = {}): Promise<Document> {
+    await this.access.assertDocument(id);
     const doc = await this.prisma.scoped().document.findFirst({ where: { id, deletedAt: null } });
     if (!doc) throw new NotFoundException('Document not found');
     this.assertContextOwner(doc);
     this.assertClassification(doc.classification);
     if (opts.requireUploaded && !doc.uploadedAt) throw new ConflictException('Upload has not been completed');
-    if (doc.isQuarantined) throw new ForbiddenException('Document is quarantined');
+    if (doc.isQuarantined && !opts.allowQuarantined) throw new ForbiddenException('Document is quarantined');
     return doc;
   }
 
@@ -108,6 +83,7 @@ export class DocumentsService {
         storageKey: `${tenantId}/${uuidv4()}`,
         classification,
         uploadedById: this.ctx.userId,
+        isQuarantined: true,
       },
     });
     const presigned = await this.storage.presignUpload({ key: doc.storageKey, documentId: doc.id, mimeType: dto.mimeType, sizeBytes: dto.sizeBytes });
@@ -117,7 +93,7 @@ export class DocumentsService {
 
   async complete(id: string, dto: CompleteUploadDto) {
     const db = this.prisma.scoped();
-    const doc = await this.assertDocument(id);
+    const doc = await this.assertDocument(id, { allowQuarantined: true });
     if (doc.uploadedAt) return this.get(id);
     const stat = await this.storage.stat(doc.storageKey);
     if (!stat) throw new ConflictException('No object found in storage for this document; upload it first');
@@ -129,10 +105,15 @@ export class DocumentsService {
     if (dto.checksumSha256 && stat.checksumSha256 && dto.checksumSha256.toLowerCase() !== stat.checksumSha256) {
       throw new BadRequestException('Checksum does not match the uploaded content');
     }
+    const scan = await this.scanner.scan(await this.storage.getObject(doc.storageKey));
+    if (scan.status === 'infected') {
+      await this.audit.record({ action: 'document.quarantined', targetType: 'Document', targetId: id, metadata: { fileName: doc.fileName, scanner: scan.detail ?? 'malware detected' } });
+      throw new ForbiddenException('The document failed malware scanning and remains quarantined');
+    }
     const updated = await this.prisma.transaction(async (tx) => {
       const d = await tx.document.update({
         where: { id },
-        data: { uploadedAt: new Date(), sizeBytes: BigInt(stat.sizeBytes), checksumSha256: checksum },
+        data: { uploadedAt: new Date(), sizeBytes: BigInt(stat.sizeBytes), checksumSha256: checksum, isQuarantined: false },
         include: DOC_INCLUDE,
       });
       const existing = await tx.documentVersion.count({ where: { documentId: id } });
@@ -170,7 +151,7 @@ export class DocumentsService {
     if (!this.storage.isLocal) throw new ConflictException('Direct content upload is only available with the local storage driver');
     if (!Buffer.isBuffer(body) || body.length === 0) throw new BadRequestException('Request body must contain the file bytes');
     if (body.length > MAX_DOCUMENT_BYTES) throw new BadRequestException('File exceeds the 50 MB limit');
-    const doc = await this.assertDocument(id);
+    const doc = await this.assertDocument(id, { allowQuarantined: true });
     if (doc.uploadedAt) throw new ConflictException('Document content has already been uploaded');
     await this.storage.putObject(doc.storageKey, body, contentType || doc.mimeType);
     return this.complete(id, { checksumSha256: sha256(body) });
@@ -192,8 +173,9 @@ export class DocumentsService {
   async list(query: DocumentListQueryDto) {
     const db = this.prisma.scoped();
     if (query.classification) this.assertClassification(query.classification);
+    const accessScope = await this.access.documentScope();
     const where: Prisma.DocumentWhereInput = {
-      AND: [{ OR: [{ ownerType: null }, { ownerType: { not: 'AiContext' } }, { ownerType: 'AiContext', ownerId: this.ctx.userId, uploadedById: this.ctx.userId }] }],
+      AND: [accessScope],
       deletedAt: null,
       uploadedAt: { not: null },
       isQuarantined: false,
@@ -213,6 +195,7 @@ export class DocumentsService {
   }
 
   async get(id: string) {
+    await this.access.assertDocument(id);
     const doc = await this.prisma.scoped().document.findFirst({
       where: { id, deletedAt: null },
       include: { ...DOC_INCLUDE, versions: { orderBy: { versionNumber: 'desc' }, include: { uploadedBy: { select: USER_SUMMARY_SELECT } } } },

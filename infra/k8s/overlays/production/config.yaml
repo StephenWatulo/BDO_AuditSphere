@@ -10,5 +10,10 @@ data:
   S3_ENDPOINT: https://s3.af-south-1.amazonaws.com
   S3_REGION: af-south-1
   S3_BUCKET: auditsphere-documents-prod
-  AI_ENABLED: "true"
+  # Enable only after BDO approves the provider, data location and DPA.
+  AI_ENABLED: "false"
+  # Upload completion fails closed until this service returns a clean result.
+  MALWARE_SCAN_REQUIRED: "true"
+  CLAMAV_HOST: clamav.security.svc.cluster.local
+  CLAMAV_PORT: "3310"
   SMTP_FROM: BDO AuditSphere <no-reply@bdo-ea.com>

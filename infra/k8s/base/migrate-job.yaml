@@ -37,6 +37,11 @@ spec:
           env:
             - name: MIGRATE_ONLY
               value: "true"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: auditsphere-secrets
+                  key: MIGRATION_DATABASE_URL
           envFrom:
             - configMapRef:
                 name: auditsphere-config

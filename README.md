@@ -36,12 +36,21 @@ cp .env.example .env
 
 pnpm db:local        # terminal 1: embedded PostgreSQL 17 on localhost:5432 (Ctrl+C to stop)
 pnpm db:deploy       # terminal 2: apply migrations
-pnpm db:seed         # demo tenant, users and the Baraka Holdings audit universe (re-runnable)
+pnpm db:seed:demo    # synthetic tenant, users and Baraka Holdings data (local/test only)
 pnpm dev             # api http://localhost:4000/api/v1 (docs at /api/docs), web http://localhost:3000
 ```
 
 With Docker instead: `docker compose -f infra/docker/docker-compose.yml --env-file .env up -d --build`
-(postgres, MinIO, Mailpit, api, worker, web), then `pnpm db:seed`.
+(postgres, MinIO, Mailpit, api, worker, web), then `pnpm db:seed:demo`.
+
+For the confirmed Windows-only on-premises client-data launch, begin with
+[`PRODUCTION_DEPLOYMENT_GUIDE_WINDOWS.md`](PRODUCTION_DEPLOYMENT_GUIDE_WINDOWS.md), complete
+[`PRODUCTION_READINESS_CHECKLIST.md`](PRODUCTION_READINESS_CHECKLIST.md), and use `infra/windows/`.
+The Linux Compose material in [`VM_DEPLOYMENT_GUIDE.md`](VM_DEPLOYMENT_GUIDE.md) is reference-only.
+
+For an internet-facing single-VM Linux presentation deployment, `infra/vm/` exposes only
+Caddy on ports 80/443, obtains HTTPS certificates automatically, keeps PostgreSQL/MinIO/ClamAV
+internal, creates backups, and uses a generated private demo password instead of `Admin123!`.
 
 ## Demo accounts
 
@@ -97,7 +106,9 @@ docs/             architecture, ERD, journeys, roadmap, deployment, testing, API
 | `pnpm db:deploy` | `prisma migrate deploy` |
 | `pnpm db:migrate` | `prisma migrate dev` (creates a migration from schema changes) |
 | `pnpm db:status` | `prisma migrate status` |
-| `pnpm db:seed` | idempotent demo seed |
+| `pnpm db:seed` / `pnpm db:seed:reference` | safe global reference seed (permissions, frameworks and templates) |
+| `pnpm db:seed:demo` | idempotent synthetic demo seed; hard-blocked in production |
+| `pnpm db:bootstrap-admin` | one-time production tenant and administrator bootstrap |
 | `pnpm db:generate` | regenerate the Prisma client |
 | `pnpm db:studio` | Prisma Studio |
 | `pnpm format` | Prettier |
@@ -109,8 +120,8 @@ docs/             architecture, ERD, journeys, roadmap, deployment, testing, API
 - Every business table carries `tenantId`; the API scopes queries through a Prisma extension
   and PostgreSQL RLS is defence-in-depth for non-owner roles.
 - `AuditTrail` is append-only (database trigger). Every mutating API call writes a row.
-- The repository lives on OneDrive; build outputs and `.local-postgres/` are gitignored but
-  still sync. Set `LOCAL_PG_DIR` to keep the database elsewhere if sync becomes a problem.
+- Keep the repository in a normal local development directory, not OneDrive or another sync
+  folder. Set `LOCAL_PG_DIR` to a separate local data path when using embedded PostgreSQL.
 
 ## Licence
 

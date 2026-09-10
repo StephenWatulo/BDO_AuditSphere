@@ -58,7 +58,7 @@ function SignInForm() {
         return;
       }
       if (res.user) qc.setQueryData(ME_QUERY_KEY, res.user);
-      router.replace(returnTo === '/' ? homePathFor(res.user) : returnTo);
+      router.replace(res.user?.mustChangePassword || res.user?.mfaRequiredToEnrol ? homePathFor(res.user) : returnTo === '/' ? homePathFor(res.user) : returnTo);
     } catch (e) {
       setServerError(errorMessage(e, 'Sign in failed'));
     }

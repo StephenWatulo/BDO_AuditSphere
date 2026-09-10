@@ -117,5 +117,7 @@ export function isPortalOnlyUser(user: User | null | undefined): boolean {
 
 /** Where a signed-in user lands when no return path was requested. */
 export function homePathFor(user: User | null | undefined): string {
+  if (user?.mustChangePassword) return '/change-password';
+  if (user?.mfaRequiredToEnrol) return '/settings/security';
   return isPortalOnlyUser(user) ? '/portal' : '/';
 }

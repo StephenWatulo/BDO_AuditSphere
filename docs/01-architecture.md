@@ -1,7 +1,8 @@
 # BDO AuditSphere - System Architecture
 
-BDO AuditSphere is a multi-tenant internal audit operating platform. This document is the
-architecture of record. The database ERD is in [02-erd.md](02-erd.md), user journeys in
+BDO AuditSphere is a multi-tenant internal audit operating platform. This document describes
+the **as-built architecture**. Future capabilities are kept in [04-roadmap.md](04-roadmap.md),
+not presented here as delivered. The database ERD is in [02-erd.md](02-erd.md), user journeys in
 [03-user-journeys.md](03-user-journeys.md) and the phased roadmap in [04-roadmap.md](04-roadmap.md).
 
 ## 1. Context
@@ -13,9 +14,8 @@ flowchart TB
   committee([Audit committee<br/>Read-only oversight])
   AS[[BDO AuditSphere<br/>Audit universe, risk, planning, engagements,<br/>workpapers, findings, AI copilot]]
   entra[(Microsoft Entra ID<br/>SSO / OIDC, MFA policies)]
-  s3[(Object storage<br/>AWS S3 / MinIO / Azure Blob gateway)]
+  s3[(Object storage<br/>AWS S3 or MinIO)]
   ai[(LLM provider<br/>OpenAI-compatible: Azure OpenAI, OpenAI, Ollama, vLLM)]
-  erp[(ERP / data sources<br/>SAP, D365, Oracle, Sage, SQL, files)]
   mail[(Email / Teams<br/>Notifications)]
   auditor -->|HTTPS| AS
   business -->|Responds to requests and findings| AS
@@ -23,7 +23,6 @@ flowchart TB
   AS -->|OIDC code + PKCE| entra
   AS -->|Presigned upload / download| s3
   AS -->|Chat completions with tools| ai
-  AS -->|Pull transactions for monitoring| erp
   AS -->|Send notifications| mail
 ```
 
@@ -32,37 +31,32 @@ flowchart TB
 ```mermaid
 flowchart LR
   subgraph Client
-    WEB[Next.js 15 web app<br/>React 19, Tailwind, shadcn/ui<br/>PWA shell for mobile field work]
+    WEB[Next.js 15 web app<br/>React 19, Tailwind, responsive UI]
   end
   subgraph Edge
     ING[Ingress / WAF<br/>TLS termination, rate limiting]
   end
   subgraph Core["Application tier (Kubernetes)"]
-    API[NestJS API<br/>REST /api/v1 + OpenAPI<br/>GraphQL /graphql for knowledge graph]
+    API[NestJS API<br/>REST /api/v1 + OpenAPI]
     WORKER[NestJS worker<br/>Scheduled jobs: reminders, escalations,<br/>document text extraction, AI batch, monitoring runs]
     AI[AI copilot module<br/>prompt registry, tool router,<br/>provider adapter]
   end
   subgraph Data
     PG[(PostgreSQL 16<br/>Prisma, RLS per tenant,<br/>append-only audit trail)]
-    REDIS[(Redis<br/>queues, cache, rate limits)]
     OBJ[(S3-compatible object store<br/>versioned, SSE encryption)]
   end
   subgraph External
     ENTRA[Entra ID]
     LLM[LLM provider]
-    ERP[ERP / DB connectors]
     SMTP[SMTP / Graph mail]
   end
   WEB -->|HTTPS, httpOnly cookies| ING --> API
   API --> PG
-  API --> REDIS
   API -->|presigned URLs| OBJ
   WEB -->|direct upload via presigned URL| OBJ
   API --> AI --> LLM
-  API -->|enqueue| REDIS --> WORKER
   WORKER --> PG
   WORKER --> OBJ
-  WORKER --> ERP
   WORKER --> SMTP
   API -->|OIDC| ENTRA
 ```
@@ -91,9 +85,9 @@ docs/           Architecture, ERD, journeys, roadmap, ADRs, API docs
 | Module | Responsibility |
 |---|---|
 | `auth` | Local login (argon2id), Entra ID OIDC (authorization code + PKCE), TOTP MFA, rotating refresh tokens, session revocation |
-| `access` | Roles, permissions, `@RequirePermission()` guard, entity-scoped roles, segregation-of-duties checks |
+| `access` | Roles, permissions, `@RequirePermission()` guard, record-level portal policies, segregation-of-duties checks |
 | `tenancy` | Tenant resolution from JWT, tenant-scoped Prisma client extension, Postgres `SET app.tenant_id` for RLS |
-| `audit-trail` | Interceptor that writes before/after snapshots for every mutating request; append-only table |
+| `audit-trail` | Explicit service-level mutation events and append-only database table |
 | `universe` | Entities tree, processes, coverage analysis |
 | `risk` | Risks, assessments, scoring models, heat maps, AI risk recommendations |
 | `controls` | Controls repository, risk-control matrix, control testing |
@@ -110,8 +104,7 @@ docs/           Architecture, ERD, journeys, roadmap, ADRs, API docs
 | `time` | Timesheets, charge codes, availability, utilisation |
 | `dashboards` | Aggregations for committee, partner and auditor views |
 | `ai` | Copilot: prompt registry, provider adapter, tool router, NL search, report writer, quality checker |
-| `monitoring` | Connectors, rules, alert generation (Phase 3) |
-| `graph` | Knowledge graph queries Risk -> Control -> Procedure -> Evidence -> Finding -> Recommendation |
+| `monitoring` | Connector/rule/alert records and management screens; execution engine remains roadmap |
 
 ### 4.2 Request pipeline
 
@@ -154,7 +147,7 @@ Each transition writes a status-history row, an audit-trail row and fan-out noti
 | Authentication | Entra ID OIDC (PKCE) with local fallback; argon2id password hashing; lockout after 5 failures |
 | MFA | TOTP (RFC 6238) enforced for audit-function roles; recovery codes; Entra conditional access honoured |
 | Sessions | 15-minute access JWT + 30-day rotating refresh token (hashed, family-based reuse detection) in httpOnly, SameSite=Lax cookies |
-| RBAC | Role -> permission matrix in `packages/shared`; guards on every route; entity-scoped roles for business users |
+| RBAC and object access | Role -> permission matrix plus centralized record-level policies for portal/business users |
 | Segregation of duties | Preparer cannot review or sign off own workpaper; finding validator cannot be action owner; enforced in workflow guards |
 | Tenant isolation | `tenantId` on every table, Prisma extension injects filters, Postgres RLS policies keyed on `current_setting('app.tenant_id')` |
 | Encryption | TLS in transit; storage encryption at rest; S3 SSE; field-level AES-256-GCM for MFA secrets and connector configs |
@@ -171,8 +164,8 @@ Each transition writes a status-history row, an audit-trail row and fan-out noti
 - Global command palette (Ctrl+K) for search-everywhere and keyboard navigation.
 - Data tables with filter chips, saved views, drag-and-drop ordering of programme steps and
   workpapers.
-- Offline-capable PWA shell for field inspections (Phase 4): IndexedDB queue for photos and
-  voice notes, background sync.
+- Responsive web application. Offline/PWA synchronization is not implemented and remains a
+  possible roadmap item.
 
 ## 6. AI layer
 
@@ -195,7 +188,7 @@ selected by `AI_BASE_URL`, so a local model (Ollama, vLLM) is a configuration ch
 
 - Docker images for `api` and `web` (multi-stage, non-root runtime).
 - Kubernetes: separate Deployments for api, worker and web; HPA on CPU; PodDisruptionBudgets;
-  Secrets from an external secret store; Postgres and Redis as managed services in production.
+  Secrets from an external secret store; managed PostgreSQL and S3-compatible storage.
 - CI (GitHub Actions): lint, typecheck, unit tests, integration tests against a Postgres service
   container, build and push images, `prisma migrate deploy` job, rollout.
 - Observability: pino structured logs with request id, `/health` and `/ready` probes.
@@ -207,7 +200,14 @@ See `docs/adr/` for full records.
 | ADR | Decision |
 |---|---|
 | 001 | PostgreSQL + Prisma with tenant column and RLS rather than schema-per-tenant |
-| 002 | REST as primary API with OpenAPI; GraphQL only for graph traversal and dashboard composition |
+| 002 | REST is the implemented API; GraphQL remains an optional roadmap decision |
+
+## 9. Explicitly unimplemented roadmap items
+
+Redis-backed queues/cache, GraphQL, offline/PWA synchronization, ERP connector execution,
+Azure Blob native storage, distributed tracing and a production metrics stack are not part of
+the current implementation. Their presence in roadmap or historical documents is not evidence
+that they are available in a deployment.
 | 003 | Workflow state machines declared in shared package, enforced server-side |
 | 004 | OpenAI-compatible adapter so any provider or local model can be used |
 | 005 | Documents stored in object storage with presigned URLs; DB stores metadata only |

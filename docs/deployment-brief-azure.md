@@ -225,7 +225,8 @@ engagements, findings, requests. Split it into:
   configured, creates the user with the Entra object id so first sign-in maps to the
   admin role). Everything after that happens through Admin > Users.
 
-Keep `pnpm db:seed` as an alias for reference + demo so local development and CI are
+Keep `pnpm db:seed` as the safe reference-only alias; local development and CI explicitly use
+`pnpm db:seed:demo` so a generic seed command can never create demo accounts in production.
 unchanged. Definition of done: a fresh database with `seed:reference` + `bootstrap-admin`
 lets the administrator sign in, invite users and create an audit universe; `seed:demo`
 aborts in production.

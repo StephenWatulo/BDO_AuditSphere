@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 import { IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { PaginationDto } from '../common/pagination';
 
-export const DOCUMENT_OWNER_TYPES = ['Engagement', 'Workpaper', 'Finding', 'Recommendation', 'DocumentRequest', 'Evidence', 'LibraryItem', 'Report', 'Comment', 'AiContext'] as const;
+export const DOCUMENT_OWNER_TYPES = ['Engagement', 'Workpaper', 'Finding', 'Recommendation', 'DocumentRequest', 'Evidence', 'LibraryItem', 'AiContext'] as const;
 export type DocumentOwnerType = (typeof DOCUMENT_OWNER_TYPES)[number];
 export const MAX_DOCUMENT_BYTES = 50 * 1024 * 1024;
 

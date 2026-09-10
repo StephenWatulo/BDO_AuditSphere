@@ -3,6 +3,7 @@ import { Engagement, EngagementStage, Prisma } from '@auditsphere/db';
 import { ENGAGEMENT_WORKFLOW } from '@auditsphere/shared';
 import { AuditTrailService } from '../audit-trail/audit-trail.service';
 import { AuthUser } from '../auth/auth.types';
+import { ObjectAccessService } from '../auth/object-access.service';
 import { TransitionDto } from '../common/dto/transition.dto';
 import { paginate, parseSort } from '../common/pagination';
 import { addMonths, compact, isBlank, toDate, USER_SUMMARY_SELECT } from '../common/utils';
@@ -76,6 +77,7 @@ export class EngagementsService {
     private readonly audit: AuditTrailService,
     private readonly workflow: WorkflowService,
     private readonly notifications: NotificationService,
+    private readonly access: ObjectAccessService,
     registry: GuardRegistry,
     private readonly documents: DocumentsService,
   ) {
@@ -153,7 +155,9 @@ export class EngagementsService {
 
   async list(query: EngagementListQueryDto, user: AuthUser) {
     const db = this.prisma.scoped();
-    const where = buildEngagementWhere(query, user.id);
+    const where: Prisma.EngagementWhereInput = {
+      AND: [buildEngagementWhere(query, user.id), this.access.engagementScope()],
+    };
     const orderBy = parseSort(query.sort, ['auditNumber', 'title', 'stage', 'status', 'plannedStart', 'plannedEnd', 'createdAt', 'riskRating'] as const, {
       createdAt: 'desc',
     });
@@ -195,6 +199,7 @@ export class EngagementsService {
   }
 
   async get(id: string, user: AuthUser) {
+    await this.access.assertEngagement(id);
     const db = this.prisma.scoped();
     const engagement = await db.engagement.findFirst({
       where: { id, deletedAt: null },
@@ -386,6 +391,7 @@ export class EngagementsService {
   }
 
   async transition(id: string, dto: TransitionDto, user: AuthUser) {
+    await this.access.assertEngagement(id);
     const engagement = await this.assertEngagement(id);
     const transition = await this.workflow.transition({
       machine: ENGAGEMENT_WORKFLOW,

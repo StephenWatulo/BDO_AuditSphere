@@ -20,6 +20,7 @@ function makeUser(over: Record<string, unknown> = {}) {
     failedLoginCount: 0,
     lockedUntil: null as Date | null,
     deletedAt: null,
+    preferences: {},
     tenant: { id: TENANT, slug: 'bdo-ea', isActive: true },
     ...over,
   };
@@ -137,5 +138,18 @@ describe('AuthService', () => {
     await expect(service.refresh(undefined, meta)).rejects.toBeInstanceOf(UnauthorizedException);
     prisma.refreshToken.findUnique.mockResolvedValue({ id: 'rt', family: 'f', revokedAt: null, expiresAt: new Date(Date.now() - 1) });
     await expect(service.refresh('raw', meta)).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('clears the bootstrap password flag after a successful password change', async () => {
+    prisma.user.findFirstOrThrow.mockResolvedValue(makeUser({
+      passwordHash,
+      preferences: { mustChangePassword: true, timezone: 'Africa/Nairobi' },
+    }));
+    await service.changePassword(USER_ID, 'Admin123!', 'SaferPassword456!');
+    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ preferences: { timezone: 'Africa/Nairobi' } }),
+    }));
+    expect(userAccess.invalidate).toHaveBeenCalledWith(USER_ID);
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'auth.password_changed' }));
   });
 });

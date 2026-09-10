@@ -150,6 +150,10 @@ describe('AuditSphere API (e2e)', () => {
   let owner: ReturnType<typeof request.agent>;
   let ownerId: string;
   let requestId: string;
+  let inaccessibleEngagementId: string;
+  let inaccessibleFindingId: string;
+  let inaccessibleRequestId: string;
+  let inaccessibleDocumentId: string;
   const nextWeek = new Date(Date.now() + 7 * 86_400_000).toISOString();
 
   it('business owner sees only their own requests and findings through mine=true', async () => {
@@ -175,6 +179,42 @@ describe('AuditSphere API (e2e)', () => {
     await agent.patch(`/api/v1/findings/${findingId}`).send({ actionOwnerId: ownerId }).expect(200);
     const findings = await owner.get('/api/v1/findings?mine=true&pageSize=200').expect(200);
     expect(findings.body.items.some((f: { id: string }) => f.id === findingId)).toBe(true);
+  });
+
+  it('prevents portal users from enumerating unrelated records and documents', async () => {
+    const engagement = await agent
+      .post('/api/v1/engagements')
+      .send({ title: `E2E restricted engagement ${stamp}`, type: 'OPERATIONAL', objectives: 'Restricted', scope: 'Restricted' })
+      .expect(201);
+    inaccessibleEngagementId = engagement.body.id;
+    const finding = await agent.post('/api/v1/findings').send({
+      engagementId: inaccessibleEngagementId,
+      title: `E2E restricted finding ${stamp}`,
+      severity: 'MEDIUM',
+      condition: 'Restricted condition',
+      criteria: 'Restricted criteria',
+      recommendation: 'Restricted recommendation',
+    }).expect(201);
+    inaccessibleFindingId = finding.body.id;
+    const documentRequest = await agent.post('/api/v1/requests').send({
+      engagementId: inaccessibleEngagementId,
+      title: `E2E restricted request ${stamp}`,
+      dueDate: nextWeek,
+    }).expect(201);
+    inaccessibleRequestId = documentRequest.body.id;
+    const document = await agent.post('/api/v1/documents/upload')
+      .field('ownerType', 'Engagement')
+      .field('ownerId', inaccessibleEngagementId)
+      .field('classification', 'CONFIDENTIAL')
+      .attach('file', Buffer.from('synthetic restricted content'), { filename: 'restricted.txt', contentType: 'text/plain' })
+      .expect(201);
+    inaccessibleDocumentId = document.body.id;
+
+    await owner.get(`/api/v1/engagements/${inaccessibleEngagementId}`).expect(404);
+    await owner.get(`/api/v1/findings/${inaccessibleFindingId}`).expect(404);
+    await owner.get(`/api/v1/requests/${inaccessibleRequestId}`).expect(404);
+    await owner.get(`/api/v1/documents/${inaccessibleDocumentId}`).expect(404);
+    await owner.get(`/api/v1/documents/${inaccessibleDocumentId}/content`).expect(404);
   });
 
   it('business owner may only edit the response note, then submits the request', async () => {
@@ -248,7 +288,7 @@ describe('AuditSphere API (e2e)', () => {
     await request(app.getHttpServer()).get(`/api/v1/documents/${id}/content`).expect(401);
     const other = request.agent(app.getHttpServer());
     await other.post('/api/v1/auth/login').send({ email: 'manager@bdo-ea.com', password: ADMIN.password }).expect(200);
-    await other.get(`/api/v1/documents/${id}/content`).expect(403);
+    await other.get(`/api/v1/documents/${id}/content`).expect(404);
     await other.post('/api/v1/auth/logout').expect(204);
     await agent.delete(`/api/v1/documents/${id}`).expect(204);
   });

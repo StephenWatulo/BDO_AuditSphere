@@ -25,7 +25,7 @@ The app must be running locally. In a terminal in the repository folder:
 ```
 pnpm db:local                          # embedded Postgres 17 on :5432, leave it running
 pnpm db:deploy                         # migrations (safe to rerun)
-pnpm db:seed                           # only on a fresh database
+pnpm db:seed:demo                      # only on a fresh local/test database
 pnpm --filter @auditsphere/api dev     # API on http://localhost:4000
 pnpm --filter @auditsphere/web dev     # web on http://localhost:3000
 ```

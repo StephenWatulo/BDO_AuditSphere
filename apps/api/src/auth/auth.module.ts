@@ -7,12 +7,13 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { TokenService } from './token.service';
 import { UserAccessService } from './user-access.service';
+import { ObjectAccessService } from './object-access.service';
 
 @Global()
 @Module({
   imports: [JwtModule.register({})],
   controllers: [AuthController],
-  providers: [AuthService, TokenService, UserAccessService, EntraService, JwtAuthGuard, PermissionsGuard],
-  exports: [AuthService, TokenService, UserAccessService, JwtAuthGuard, PermissionsGuard],
+  providers: [AuthService, TokenService, UserAccessService, ObjectAccessService, EntraService, JwtAuthGuard, PermissionsGuard],
+  exports: [AuthService, TokenService, UserAccessService, ObjectAccessService, JwtAuthGuard, PermissionsGuard],
 })
 export class AuthModule {}

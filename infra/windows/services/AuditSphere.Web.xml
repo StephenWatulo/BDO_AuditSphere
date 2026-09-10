@@ -1,0 +1,19 @@
+<service>
+  <id>AuditSphere.Web</id>
+  <name>AuditSphere Web</name>
+  <description>AuditSphere Next.js web application.</description>
+  <executable>C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</executable>
+  <arguments>-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "__RUNNER__" -Service Web -AppRoot "__APP_ROOT__" -EnvFile "__ENV_FILE__" -RuntimeRoot "__RUNTIME_ROOT__"</arguments>
+  <workingdirectory>__APP_ROOT__</workingdirectory>
+  <serviceaccount><username>NT AUTHORITY\LocalService</username></serviceaccount>
+  <depend>AuditSphere.Api</depend>
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <stoptimeout>30 sec</stoptimeout>
+  <onfailure action="restart" delay="10 sec" />
+  <onfailure action="restart" delay="30 sec" />
+  <resetfailure>1 hour</resetfailure>
+  <logpath>__LOG_ROOT__</logpath>
+  <log mode="roll-by-size-time"><sizeThreshold>10240</sizeThreshold><pattern>yyyyMMdd</pattern><autoRollAtTime>00:00:00</autoRollAtTime><zipOlderThanNumDays>7</zipOlderThanNumDays><keepFiles>14</keepFiles></log>
+</service>
+

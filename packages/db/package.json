@@ -10,11 +10,14 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:reset": "prisma migrate reset --force",
-    "seed": "tsx prisma/seed.ts",
+    "seed": "tsx prisma/seed.ts --reference",
+    "seed:reference": "tsx prisma/seed.ts --reference",
+    "seed:demo": "tsx prisma/seed.ts --demo",
+    "bootstrap:admin": "tsx prisma/bootstrap-admin.ts",
     "studio": "prisma studio",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.scripts.json --noEmit"
   },
-  "prisma": { "seed": "tsx prisma/seed.ts" },
+  "prisma": { "seed": "tsx prisma/seed.ts --reference" },
   "dependencies": {
     "@prisma/client": "6.19.3"
   },

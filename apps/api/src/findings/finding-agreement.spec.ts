@@ -13,7 +13,7 @@ describe('Finding action-owner and due-date requirements', () => {
     finding: { findFirst: jest.fn(), update: jest.fn() },
     engagement: { findFirst: jest.fn().mockResolvedValue({ stage: 'PLANNING' }) },
   };
-  const service = new FindingsService({ scoped: () => db } as never, {} as never, { record: jest.fn() } as never, workflow, { notify: jest.fn() } as never, registry);
+  const service = new FindingsService({ scoped: () => db } as never, {} as never, { record: jest.fn() } as never, workflow, { notify: jest.fn() } as never, { assertFinding: jest.fn(), findingScope: jest.fn().mockReturnValue({}), documentScope: jest.fn().mockResolvedValue({}) } as never, registry);
   const transition = (entity: Record<string, unknown>) => workflow.transition({ machine: FINDING_WORKFLOW, current: 'MANAGEMENT_REVIEW', action: 'agree', actor, guardContext: entity });
   beforeEach(() => { jest.clearAllMocks(); db.finding.findFirst.mockResolvedValue(finding); db.finding.update.mockResolvedValue(finding); db.user.findFirst.mockResolvedValue(null); });
 

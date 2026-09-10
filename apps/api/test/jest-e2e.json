@@ -6,7 +6,7 @@
   "setupFiles": ["<rootDir>/test/setup.ts"],
   "maxWorkers": 1,
   "transform": {
-    "^.+\\.ts$": ["ts-jest", { "tsconfig": "<rootDir>/tsconfig.json", "isolatedModules": true }]
+    "^.+\\.ts$": ["ts-jest", { "tsconfig": "<rootDir>/tsconfig.json" }]
   },
   "testTimeout": 60000
 }

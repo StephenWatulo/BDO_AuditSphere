@@ -68,6 +68,8 @@ export interface User extends UserRef {
   status: UserStatus;
   authProvider: AuthProvider;
   mfaEnabled: boolean;
+  mustChangePassword: boolean;
+  mfaRequiredToEnrol: boolean;
   roles: RoleKey[];
   permissions: PermissionKey[];
   lastLoginAt?: ISODate | null;

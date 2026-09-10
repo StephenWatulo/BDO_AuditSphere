@@ -88,14 +88,14 @@ reviews, deadlines this week and timesheet status. Ctrl+K opens search-everywher
 (process = Procurement, entity country = KE, status = CLOSED, closedAt after dueDate), executed
 tenant-scoped, and returned as a table with a link to the saved filter.
 
-## J9. Continuous monitoring (AM, SA), Phase 3
+## J9. Continuous monitoring (AM, SA), Phase 3 roadmap (not implemented)
 
 1. AM configures a connector (D365 GL through API or CSV upload) and enables rules: duplicate
    payments, weekend postings, split invoices under approval threshold, SoD conflicts.
 2. Rules run on schedule; alerts land in the Monitoring queue with severity and amount.
 3. SA investigates, marks false positive, or confirms and raises a finding linked to the alert.
 
-## J10. Field inspection on mobile (SA), Phase 4
+## J10. Field inspection on mobile (SA), Phase 4 roadmap (not implemented)
 
 1. SA opens the PWA offline at a branch, selects the engagement and inspection checklist.
 2. Photos and voice notes are captured against checklist items and queued in IndexedDB.

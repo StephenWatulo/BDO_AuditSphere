@@ -307,7 +307,7 @@ pnpm install
 cp .env.example .env            # defaults match the embedded database
 pnpm db:local                   # terminal 1: embedded PostgreSQL 17 on :5432
 pnpm db:deploy                  # terminal 2: prisma migrate deploy
-pnpm db:seed                    # demo tenant, roles, users, universe, engagements (idempotent)
+pnpm db:seed:demo               # demo tenant, roles, users, universe, engagements (idempotent)
 pnpm dev                        # api on :4000 and web on :3000
 ```
 
@@ -334,7 +334,7 @@ health checks against `/api/v1/health` and `/`.
 ```
 cp .env.example .env            # set JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, ENCRYPTION_KEY
 docker compose -f infra/docker/docker-compose.yml --env-file .env up -d --build
-pnpm db:seed                    # from the host against localhost:5432
+pnpm db:seed:demo               # from the host against localhost:5432
 ```
 
 Pilot variant (documents on local disk, internal ports bound to 127.0.0.1, needs Compose 2.24+):
@@ -417,9 +417,10 @@ while preparing this brief are in section 12.
   policies; tenancy is enforced by the API. Create separate read-only roles for BI or support
   and set `app.tenant_id` per session; those roles are constrained by RLS. Grant
   `auditsphere_admin` to nobody by default.
-- The seed (`pnpm db:seed`) is idempotent and creates the tenant, roles and permissions,
+- The demo seed (`pnpm db:seed:demo`) is idempotent and creates the tenant, roles and permissions,
   frameworks, library, templates, the Baraka Holdings universe and eight engagements **and the
-  nine demo accounts** with the password `Admin123!`. There is no reference-data-only mode.
+  nine demo accounts** with the password `Admin123!`. `pnpm db:seed` is the production-safe
+  reference-only mode.
   Seed only local, CI and pilot databases; in a pilot, suspend the demo accounts after creating
   real users (runbook section 9).
 - Backups: managed PostgreSQL with 35-day PITR plus nightly `pg_dump -Fc` in production;
@@ -470,7 +471,7 @@ a mailbox or relay credentials in `SMTP_USER` and `SMTP_PASS`.
 | Update | Compose: pull or copy the new code, `up -d --build`, confirm "applying database migrations" in the api log. Kubernetes: run the Deploy workflow with the new tag |
 | Rollback | Compose: rebuild from the previous code and restore the backup if a migration changed data. Kubernetes: `kubectl rollout undo` for images; database by snapshot or forward migration |
 | Restore | Compose: `pg_restore --clean --if-exists` into the container, mirror the documents folder back, restart api and worker (runbook section 10) |
-| Reset to clean | `docker compose down -v`, empty the documents folder, `up -d`, `pnpm db:seed` |
+| Reset to clean | `docker compose down -v`, empty the documents folder, `up -d`, `pnpm db:seed:demo` |
 | Emails in the pilot | Mailpit UI on the machine; nothing reaches real inboxes |
 | User manual | Admin menu in the app, or `GET /api/v1/help/user-manual?format=pdf` (docx, md); `apps/api/assets` must be deployed with the API, which the Dockerfile does |
 

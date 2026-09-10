@@ -3,6 +3,7 @@ import { DocumentRequest, Prisma, RequestStatus } from '@auditsphere/db';
 import { REQUEST_WORKFLOW } from '@auditsphere/shared';
 import { AuditTrailService } from '../audit-trail/audit-trail.service';
 import { AuthUser } from '../auth/auth.types';
+import { ObjectAccessService } from '../auth/object-access.service';
 import { TransitionDto } from '../common/dto/transition.dto';
 import { paginate, parseSort } from '../common/pagination';
 import { compact, isBlank, pad, USER_SUMMARY_SELECT } from '../common/utils';
@@ -56,6 +57,7 @@ export class RequestsService {
     private readonly audit: AuditTrailService,
     private readonly workflow: WorkflowService,
     private readonly notifications: NotificationService,
+    private readonly access: ObjectAccessService,
     registry: GuardRegistry,
   ) {
     registry.register<DocumentRequest>(REQUEST_WORKFLOW.name, 'has_attachment_or_response', async ({ entity }: GuardContext<DocumentRequest>) => {
@@ -67,7 +69,9 @@ export class RequestsService {
 
   async list(query: RequestListQueryDto, user: AuthUser) {
     const db = this.prisma.scoped();
-    const where = buildRequestWhere(query, user);
+    const where: Prisma.DocumentRequestWhereInput = {
+      AND: [buildRequestWhere(query, user), this.access.requestScope()],
+    };
     const orderBy = parseSort(query.sort, ['dueDate', 'reference', 'title', 'status', 'createdAt'] as const, { dueDate: 'asc' });
     const page = await paginate(
       query,
@@ -78,9 +82,30 @@ export class RequestsService {
   }
 
   async get(id: string, user: AuthUser) {
+    await this.access.assertRequest(id);
+    const documentScope = await this.access.documentScope();
     const r = await this.prisma.scoped().documentRequest.findFirst({
       where: { id },
-      include: { ...REQUEST_INCLUDE, documents: { where: { deletedAt: null }, include: { uploadedBy: { select: USER_SUMMARY_SELECT } } } },
+      include: {
+        ...REQUEST_INCLUDE,
+        documents: {
+          where: {
+            deletedAt: null,
+            ...(this.ctx.hasPermission('document:restricted') ? {} : { classification: { not: 'RESTRICTED' as const } }),
+            AND: [documentScope],
+          },
+          select: {
+            id: true,
+            fileName: true,
+            mimeType: true,
+            sizeBytes: true,
+            classification: true,
+            uploadedAt: true,
+            checksumSha256: true,
+            uploadedBy: { select: USER_SUMMARY_SELECT },
+          },
+        },
+      },
     });
     if (!r) throw new NotFoundException('Request not found');
     const availableActions = await this.workflow.availableActions(REQUEST_WORKFLOW, r.status, { userId: user.id, permissions: user.permissions }, r);
@@ -89,6 +114,7 @@ export class RequestsService {
   }
 
   async assertRequest(id: string) {
+    await this.access.assertRequest(id);
     const r = await this.prisma.scoped().documentRequest.findFirst({ where: { id } });
     if (!r) throw new NotFoundException('Request not found');
     return r;
@@ -225,6 +251,7 @@ export class RequestsService {
     if (!user.permissions.includes('request:manage') && request.assigneeId && request.assigneeId !== user.id) {
       throw new ForbiddenException('This request is assigned to someone else');
     }
+    await this.access.assertDocument(dto.documentId);
     const doc = await db.document.findFirst({ where: { id: dto.documentId, deletedAt: null } });
     if (!doc) throw new BadRequestException('Document not found');
     if (doc.ownerType === 'AiContext') throw new BadRequestException('Private AI context cannot be linked to a shared request. Upload the document to the request separately.');

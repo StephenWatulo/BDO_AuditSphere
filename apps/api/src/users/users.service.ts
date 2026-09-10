@@ -182,6 +182,45 @@ export class UsersService {
     return after;
   }
 
+  async resetPassword(id: string): Promise<{ temporaryPassword: string }> {
+    if (id === this.ctx.userId) throw new BadRequestException('Use Change password for your own account');
+    const db = this.prisma.scoped();
+    const user = await db.user.findFirst({ where: { id, deletedAt: null } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.authProvider !== 'LOCAL') throw new BadRequestException('This password is managed by the identity provider');
+
+    const temporaryPassword = randomPassword();
+    const preferences = user.preferences && typeof user.preferences === 'object' && !Array.isArray(user.preferences)
+      ? { ...user.preferences }
+      : {};
+    preferences.mustChangePassword = true;
+    await db.user.update({
+      where: { id },
+      data: {
+        passwordHash: await hashPassword(temporaryPassword),
+        failedLoginCount: 0,
+        lockedUntil: null,
+        preferences,
+      },
+    });
+    await this.prisma.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    this.userAccess.invalidate(id);
+    await this.audit.record({ action: 'user.password_reset', targetType: 'User', targetId: id });
+    return { temporaryPassword };
+  }
+
+  async resetMfa(id: string): Promise<void> {
+    if (id === this.ctx.userId) throw new BadRequestException('You cannot administratively reset your own MFA');
+    const db = this.prisma.scoped();
+    const user = await db.user.findFirst({ where: { id, deletedAt: null } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.authProvider !== 'LOCAL') throw new BadRequestException('MFA is managed by the identity provider');
+    await db.user.update({ where: { id }, data: { mfaEnabled: false, mfaSecretEnc: null, mfaRecoveryCodes: [] } });
+    await this.prisma.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    this.userAccess.invalidate(id);
+    await this.audit.record({ action: 'user.mfa_reset', targetType: 'User', targetId: id });
+  }
+
   /** Roles of the tenant with their effective permission keys. */
   async roles() {
     const rows = await this.prisma.scoped().role.findMany({
