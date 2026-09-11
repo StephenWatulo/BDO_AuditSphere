@@ -48,7 +48,9 @@ for (const expectation of [
   'Get-Command node.exe -ErrorAction Stop',
   "apps\\api\\dist\\main.js",
   '--worker',
-  "apps\\web\\node_modules\\next\\dist\\bin\\next",
+  "-H '127.0.0.1'",
+  "-p '3000'",
+  "node_modules\\next\\dist\\bin\\next",
 ]) {
   if (!serviceRunner.includes(expectation)) {
     failures.push(`Windows service runner lacks ${expectation}`);
