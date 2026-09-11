@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 const failures = [];
+const windowsInstaller = read('infra/windows/scripts/Install-Services.ps1');
+if (/\/inheritance:r[^\r\n]*\/T\b/.test(windowsInstaller)) {
+  failures.push('Windows installer must not recursively disable inheritance on child files');
+}
 const required = [
   'infra/windows/production.env.example',
   'infra/windows/backup.env.example',
