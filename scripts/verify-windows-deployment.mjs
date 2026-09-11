@@ -41,6 +41,7 @@ const env = read('infra/windows/production.env.example');
 const backupEnv = read('infra/windows/backup.env.example');
 for (const expectation of [
   'NODE_ENV=production',
+  'API_HOST=127.0.0.1',
   'COOKIE_SECURE=true',
   'MFA_ENFORCEMENT=all',
   'MALWARE_SCAN_REQUIRED=true',

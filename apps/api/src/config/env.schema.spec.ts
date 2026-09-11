@@ -10,6 +10,7 @@ const base = {
 describe('environment security policy', () => {
   it('allows developer defaults while keeping access and refresh secrets distinct', () => {
     expect(validateEnv(base).NODE_ENV).toBe('development');
+    expect(validateEnv(base).API_HOST).toBe('0.0.0.0');
     expect(() => validateEnv({ ...base, JWT_REFRESH_SECRET: base.JWT_ACCESS_SECRET })).toThrow('must be different');
   });
 
@@ -17,6 +18,7 @@ describe('environment security policy', () => {
     const env = validateEnv({
       ...base,
       NODE_ENV: 'production',
+      API_HOST: '127.0.0.1',
       API_BASE_URL: 'https://audit.example.test',
       WEB_BASE_URL: 'https://audit.example.test',
       CORS_ORIGINS: 'https://audit.example.test',
@@ -29,6 +31,7 @@ describe('environment security policy', () => {
       SWAGGER_ENABLED: 'false',
     });
     expect(env.MALWARE_SCANNER).toBe('defender');
+    expect(env.API_HOST).toBe('127.0.0.1');
   });
 
   it('rejects an insecure production launch', () => {

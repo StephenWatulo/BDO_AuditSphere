@@ -42,6 +42,7 @@ $lines = @(
     'LOG_LEVEL=info',
     "DATABASE_URL=postgresql://auditsphere_owner:$databasePassword@127.0.0.1:5432/auditsphere?schema=public&connection_limit=20",
     'API_PORT=4000',
+    'API_HOST=127.0.0.1',
     'SWAGGER_ENABLED=false',
     "API_BASE_URL=https://$Domain",
     "WEB_BASE_URL=https://$Domain",

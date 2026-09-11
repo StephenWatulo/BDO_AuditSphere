@@ -15,7 +15,7 @@ async function bootstrap() {
 
   const config = app.get(AppConfigService);
   if (config.api.swaggerEnabled) setupSwagger(app);
-  await app.listen(config.api.port);
+  await app.listen(config.api.port, config.api.host);
   const mode = config.jobs.enabled ? 'api+worker' : 'api';
   const docs = config.api.swaggerEnabled ? ' - docs at /api/docs' : '';
   app.get(Logger).log(`AuditSphere API (${mode}) listening on ${config.api.baseUrl}/api/v1${docs}`);

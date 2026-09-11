@@ -18,10 +18,13 @@ Set-Location -LiteralPath $AppRoot
 
 switch ($Service) {
     'Api' {
+        $env:API_HOST = '127.0.0.1'
         $env:RUN_JOBS = 'false'
         & pnpm.cmd --filter '@auditsphere/api' start
     }
     'Worker' {
+        $env:API_HOST = '127.0.0.1'
+        $env:API_PORT = '4001'
         $env:RUN_JOBS = 'true'
         & pnpm.cmd --filter '@auditsphere/api' start:worker
     }

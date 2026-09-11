@@ -39,7 +39,7 @@ if ($node) {
 }
 
 if (Test-Path -LiteralPath $EnvFile) {
-    $required = @('DATABASE_URL', 'API_BASE_URL', 'WEB_BASE_URL', 'CORS_ORIGINS', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'ENCRYPTION_KEY', 'LOCAL_STORAGE_DIR', 'DOMAIN', 'ACME_EMAIL', 'BACKUP_ROOT')
+    $required = @('DATABASE_URL', 'API_HOST', 'API_BASE_URL', 'WEB_BASE_URL', 'CORS_ORIGINS', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'ENCRYPTION_KEY', 'LOCAL_STORAGE_DIR', 'DOMAIN', 'ACME_EMAIL', 'BACKUP_ROOT')
     foreach ($key in $required) {
         $value = [Environment]::GetEnvironmentVariable($key, 'Process')
         if ([string]::IsNullOrWhiteSpace($value)) { Fail "Missing required environment value: $key" }
@@ -49,6 +49,7 @@ if (Test-Path -LiteralPath $EnvFile) {
         if ($value -match 'CHANGE_ME') { Fail "$key still contains CHANGE_ME." }
     }
     if ($env:API_BASE_URL -notmatch '^https://') { Fail 'API_BASE_URL must use HTTPS.' }
+    if ($env:API_HOST -ne '127.0.0.1') { Fail 'Windows API_HOST must be 127.0.0.1.' }
     if ($env:WEB_BASE_URL -notmatch '^https://') { Fail 'WEB_BASE_URL must use HTTPS.' }
     if ($env:COOKIE_SECURE -ne 'true') { Fail 'COOKIE_SECURE must be true.' }
     if ($env:MFA_ENFORCEMENT -ne 'all') { Fail 'MFA_ENFORCEMENT must be all for local-account production.' }
@@ -88,7 +89,7 @@ if (-not $BeforeServiceInstall) {
     foreach ($name in @('postgresql*', 'AuditSphere.Api', 'AuditSphere.Worker', 'AuditSphere.Web', 'AuditSphere.Caddy')) {
         if (-not (Get-Service -Name $name -ErrorAction SilentlyContinue)) { Fail "Expected Windows service not found: $name" }
     }
-    foreach ($port in @(3000, 4000, 5432)) {
+    foreach ($port in @(3000, 4000, 4001, 5432)) {
         $publicListener = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue |
             Where-Object { $_.LocalAddress -notin @('127.0.0.1', '::1') }
         if ($publicListener) { Fail "Backend port $port is listening beyond localhost." }
