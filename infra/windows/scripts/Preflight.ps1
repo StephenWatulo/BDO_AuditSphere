@@ -59,7 +59,7 @@ if (Test-Path -LiteralPath $EnvFile) {
         if ($env:BACKUP_DATABASE_URL -match 'CHANGE_ME') { Fail 'BACKUP_DATABASE_URL still contains CHANGE_ME.' }
     }
     if ($env:BACKUP_ROOT -notmatch '^\\\\') { Fail 'BACKUP_ROOT must be an off-server UNC path, not a local disk.' }
-    elseif (-not (Test-Path -LiteralPath $env:BACKUP_ROOT -PathType Container)) { Fail "Backup share is not reachable: $($env:BACKUP_ROOT)" }
+    elseif (-not ([IO.Directory]::Exists($env:BACKUP_ROOT))) { Fail "Backup share is not reachable: $($env:BACKUP_ROOT)" }
     else {
         $probe = Join-Path $env:BACKUP_ROOT (".auditsphere-write-test-{0}.tmp" -f [Guid]::NewGuid())
         try { [IO.File]::WriteAllText($probe, 'backup write test'); Remove-Item -LiteralPath $probe -Force }
