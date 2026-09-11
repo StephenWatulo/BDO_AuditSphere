@@ -10,9 +10,9 @@ Set-StrictMode -Version Latest
 & (Join-Path $PSScriptRoot 'Import-Environment.ps1') -FilePath $EnvFile
 Set-Location -LiteralPath $AppRoot
 
-& corepack.exe enable
+& corepack.cmd enable
 if ($LASTEXITCODE -ne 0) { throw 'corepack enable failed' }
-& pnpm.cmd install --frozen-lockfile
+& pnpm.cmd install --frozen-lockfile --prod=false
 if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed' }
 & pnpm.cmd db:generate
 if ($LASTEXITCODE -ne 0) { throw 'Prisma client generation failed' }
