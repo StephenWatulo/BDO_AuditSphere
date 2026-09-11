@@ -38,6 +38,22 @@ const required = [
 
 for (const file of required) if (!fs.existsSync(path.join(root, file))) failures.push(`missing ${file}`);
 const env = read('infra/windows/production.env.example');
+const serviceRunner = read('infra/windows/scripts/Run-Service.ps1');
+ 
+if (serviceRunner.includes('pnpm.cmd')) {
+  failures.push('Windows services must not invoke pnpm or Corepack at runtime.');
+}
+ 
+for (const expectation of [
+  'Get-Command node.exe -ErrorAction Stop',
+  "apps\\api\\dist\\main.js",
+  '--worker',
+  "apps\\web\\node_modules\\next\\dist\\bin\\next",
+]) {
+  if (!serviceRunner.includes(expectation)) {
+    failures.push(`Windows service runner lacks ${expectation}`);
+  }
+}
 const backupEnv = read('infra/windows/backup.env.example');
 for (const expectation of [
   'NODE_ENV=production',
