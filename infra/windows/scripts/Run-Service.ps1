@@ -15,24 +15,25 @@ Set-StrictMode -Version Latest
 
 & (Join-Path $PSScriptRoot 'Import-Environment.ps1') -FilePath $EnvFile
 Set-Location -LiteralPath $AppRoot
+$NodeExecutable = (Get-Command node.exe -ErrorAction Stop).Source
 
 switch ($Service) {
     'Api' {
         $env:API_HOST = '127.0.0.1'
         $env:RUN_JOBS = 'false'
-        & pnpm.cmd --filter '@auditsphere/api' start
+        & $NodeExecutable (Join-Path $AppRoot 'apps\api\dist\main.js')
     }
     'Worker' {
         $env:API_HOST = '127.0.0.1'
         $env:API_PORT = '4001'
         $env:RUN_JOBS = 'true'
-        & pnpm.cmd --filter '@auditsphere/api' start:worker
+        & $NodeExecutable (Join-Path $AppRoot 'apps\api\dist\main.js') --worker
     }
     'Web' {
         $env:PORT = '3000'
         $env:HOSTNAME = '127.0.0.1'
         $env:API_INTERNAL_URL = 'http://127.0.0.1:4000'
-        & pnpm.cmd --filter '@auditsphere/web' start
+        & $NodeExecutable (Join-Path $AppRoot 'apps\web\node_modules\next\dist\bin\next') start (Join-Path $AppRoot 'apps\web')
     }
     'Caddy' {
         $caddy = Join-Path $RuntimeRoot 'bin\caddy.exe'
