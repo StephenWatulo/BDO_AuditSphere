@@ -33,7 +33,7 @@ switch ($Service) {
         $env:PORT = '3000'
         $env:HOSTNAME = '127.0.0.1'
         $env:API_INTERNAL_URL = 'http://127.0.0.1:4000'
-        & $NodeExecutable (Join-Path $AppRoot 'apps\web\node_modules\next\dist\bin\next') start (Join-Path $AppRoot 'apps\web')
+        & $NodeExecutable (Join-Path $AppRoot 'node_modules\next\dist\bin\next') start (Join-Path $AppRoot 'apps\web') -H '127.0.0.1' -p '3000'
     }
     'Caddy' {
         $caddy = Join-Path $RuntimeRoot 'bin\caddy.exe'
