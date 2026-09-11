@@ -10,7 +10,7 @@ export interface AppConfig {
   isProduction: boolean;
   logLevel: string;
   databaseUrl: string;
-  api: { port: number; baseUrl: string; webBaseUrl: string; corsOrigins: string[]; swaggerEnabled: boolean };
+  api: { port: number; host: string; baseUrl: string; webBaseUrl: string; corsOrigins: string[]; swaggerEnabled: boolean };
   jwt: { accessSecret: string; refreshSecret: string; accessTtlMs: number; refreshTtlMs: number };
   cookies: { secure: boolean };
   auth: { mfaEnforcement: 'off' | 'audit' | 'all' };
@@ -50,6 +50,7 @@ export function buildConfig(env: Env): AppConfig {
     databaseUrl: env.DATABASE_URL,
     api: {
       port: env.API_PORT,
+      host: env.API_HOST,
       baseUrl: env.API_BASE_URL.replace(/\/+$/, ''),
       webBaseUrl: env.WEB_BASE_URL.replace(/\/+$/, ''),
       corsOrigins: env.CORS_ORIGINS.split(',')

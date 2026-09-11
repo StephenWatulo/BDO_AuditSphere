@@ -20,6 +20,7 @@ export const envSchema = z.object({
 
   // API
   API_PORT: z.coerce.number().int().positive().default(4000),
+  API_HOST: z.string().min(1).default('0.0.0.0'),
   SWAGGER_ENABLED: bool.default(false),
   API_BASE_URL: z.string().url().default('http://localhost:4000'),
   WEB_BASE_URL: z.string().url().default('http://localhost:3000'),
