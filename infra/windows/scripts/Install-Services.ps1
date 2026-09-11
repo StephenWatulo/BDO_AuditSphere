@@ -50,10 +50,10 @@ foreach ($service in $services) {
 # The app binaries are read-only to LocalService; logs, Caddy state and document
 # storage are writable. The secret file is readable only by admins, SYSTEM and
 # the runtime identity.
-& icacls.exe $AppRoot /inheritance:r /grant:r 'Administrators:(OI)(CI)F' 'SYSTEM:(OI)(CI)F' 'LOCAL SERVICE:(OI)(CI)RX' /T /C | Out-Null
+& icacls.exe $AppRoot /inheritance:r /grant:r 'Administrators:(OI)(CI)F' 'SYSTEM:(OI)(CI)F' 'LOCAL SERVICE:(OI)(CI)RX' | Out-Null
 & icacls.exe $EnvFile /inheritance:r /grant:r 'Administrators:F' 'SYSTEM:F' 'LOCAL SERVICE:R' | Out-Null
 foreach ($directory in @($logRoot, $caddyRoot, $env:LOCAL_STORAGE_DIR)) {
-    & icacls.exe $directory /inheritance:r /grant:r 'Administrators:(OI)(CI)F' 'SYSTEM:(OI)(CI)F' 'LOCAL SERVICE:(OI)(CI)M' /T /C | Out-Null
+    & icacls.exe $directory /inheritance:r /grant:r 'Administrators:(OI)(CI)F' 'SYSTEM:(OI)(CI)F' 'LOCAL SERVICE:(OI)(CI)M' | Out-Null
 }
 
 foreach ($service in $services) {
